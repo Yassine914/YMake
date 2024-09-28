@@ -94,17 +94,17 @@ CommandInfo ParseCLI(std::vector<std::string> arguments, std::vector<Command> co
         }
     }
 
-    LLOG(BLUE_TEXT("COMMAND INPUT: \n"));
-    for(auto entry : cmdIn)
-    {
-        LLOG("\t", entry, "\n");
-    }
+    // LLOG(BLUE_TEXT("COMMAND INPUT: \n"));
+    // for(auto entry : cmdIn)
+    // {
+    //     LLOG("\t", entry, "\n");
+    // }
 
-    LLOG(BLUE_TEXT("COMMAND ARGS: \n"));
-    for(auto &[k, v] : foundAvailableArgs)
-    {
-        LLOG("\tkey: ", k, "\tval: ", v, "\n");
-    }
+    // LLOG(BLUE_TEXT("COMMAND ARGS: \n"));
+    // for(auto &[k, v] : foundAvailableArgs)
+    // {
+    //     LLOG("\tkey: ", k, "\tval: ", v, "\n");
+    // }
 
     CommandInfo info = {
         .cmd       = calledCmd,
@@ -171,7 +171,8 @@ void CreateDefaultConfig(std::vector<std::string> &input, std::map<std::string, 
         "\n"
         "[Default]\n"
         "\n"
-        "lang = [ \"C++\" ]\n"
+        "#could be an array for multiple language support"
+        "lang = \"C++\"\n"
         "\n"
         "cpp.std = 14\n"
         "cpp.compiler = \"clang++\"\n"
@@ -191,9 +192,12 @@ void CreateDefaultConfig(std::vector<std::string> &input, std::map<std::string, 
         "]\n"
         "\n"
         "[Default.compiler]\n"
-        "defines = [\n"
+        "defines.debug = [\n"
         "    \"DDEBUG\",\n"
         "    \"DTEST=1\"\n"
+        "]\n\n"
+        "defines.release = [\n"
+        "    \"DNDEBUG\",\n"
         "]\n"
         "\n"
         "flags = [\n"

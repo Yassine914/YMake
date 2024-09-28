@@ -107,6 +107,10 @@ bool IsConfigCacheValid(const char *configFilePath)
         LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't create cache directories.\n\t", err.what(), "\n");
     }
 
+    std::string cachefilepath = std::string(YMAKE_CACHE_DIR) + "/" + YMAKE_CONFIG_PATH_CACHE_FILENAME;
+    if(!fs::exists(cachefilepath.c_str()))
+        return false;
+
     // read config filepath
     std::ifstream filepathCacheFile(std::string(YMAKE_CACHE_DIR) + "/" + YMAKE_CONFIG_PATH_CACHE_FILENAME);
     std::string filepath;
@@ -314,6 +318,7 @@ std::vector<Project> LoadProjectsCache()
 std::vector<Project> SafeLoadProjectsFromCache(const char *configPath)
 {
     std::vector<Project> projects;
+    // TODO: either fix the isConfigCacheValid func or this one.
     if(Cache::IsConfigCacheValid(configPath))
     {
         projects = Cache::LoadProjectsCache();

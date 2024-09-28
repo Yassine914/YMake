@@ -32,7 +32,7 @@ int main(int argc, char **argv)
         Y::Command("build", "<projects> [args...]\tbuild project(s) specified. (must be in the toml file) [if no project(s) are specified, builds all projects]", {
             Y::CommandArgument("config", "/path/to/YMake.toml", "-c", "--config-file"),
             Y::CommandArgument("build mode", "build the project in [release or debug] mode", "-b", "--build-mode"),
-            Y::CommandArgument("clean build", "rebuild the project entirely (including libraries)", "-C", "-Clean", Y::ValueType::BOOL),
+            Y::CommandArgument("clean build", "rebuild the project entirely (including libraries)", "-C", "--clean", Y::ValueType::BOOL),
         }, Y::BuildProjects),
 
         Y::Command("clean", "[args...]\tclean all the YMake-generated cache", {

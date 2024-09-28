@@ -1,0 +1,24 @@
+# PROJECT: Cube
+
+[Cube]
+
+lang = "C++"
+
+cpp.std = 14
+cpp.compiler = "clang++"
+
+build.type = "executable"
+build.dir = "./build"
+
+src = "./src"
+
+[Cube.compiler]
+defines.debug= [
+    "DDEBUG",
+]
+
+flags = [
+    "-Wall",
+    "-Wargs",
+    "-g"
+]

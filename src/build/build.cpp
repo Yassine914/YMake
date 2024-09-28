@@ -407,6 +407,7 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
         {
             translationUnits.push_back(SelectiveCompileUnit(proj, mode, file, projectCacheDir));
         }
+
         try
         {
             // regen cache for .cpp files.
