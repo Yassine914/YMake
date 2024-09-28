@@ -1,0 +1,38 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${default}",
+                "${workspaceFolder}/lib/tomlplusplus/include/"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "windowsSdkVersion": "10.0.22621.0",
+            "compilerPath": "C:/Program Files/LLVM/bin/clang.exe",
+            "intelliSenseMode": "windows-clang-x64",
+            "cStandard": "c11",
+            "cppStandard": "c++14"
+        },
+        {
+            "name": "default-cpp",
+            "includePath": [
+                "${default}",
+                "${workspaceFolder}/lib/tomlplusplus/include/"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "windowsSdkVersion": "10.0.22621.0",
+            "compilerPath": "C:/msys64/usr/bin/clang++.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++14"
+        }
+    ],
+    "version": 4
+}

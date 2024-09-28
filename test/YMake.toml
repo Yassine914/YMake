@@ -1,0 +1,74 @@
+# PROJECT: YMakeTest
+# ^ this project comment is neccessary
+
+[YMakeTest]
+
+lang = "C++" # could be an array.
+
+cpp.std = 17 # must be specified if lang includes C++
+cpp.compiler = "clang++"
+
+c.std = 99 # must be specified if lang includes C
+c.compiler = "gcc"
+
+build.type = "executable" # executable, static lib, or shared lib
+build.dir = "./bin/"
+
+# macros like $(VK_VERSION) are specified in a .env file.
+
+src = "./src" # source directory.
+env = "./.env"
+
+includes = [
+    "./src",
+    "./include",
+    "C://Tools/VulkanSDK/$(VK_VERSION)/Include"
+]
+
+libs = [
+    {name = "Vulkan", path = "$(VK_PATH)/Source/", include = "C://Tools/VulkanSDK/$(VK_VERSION)/Include", type = "shared"},
+    {name = "GLFW", path = "./lib/GLFW/src/", include = "./lib/GLFW/include", type = "static"},
+]
+
+[YMakeTest.compiler]
+defines.release = [
+    "Y_NDEBUG"
+]
+
+defines.debug = [
+    "Y_DEBUG"
+]
+
+flags = [
+    "-Wall",
+    "-Wargs",
+    "-g"
+]
+
+# PROJECT: YMakeTest2
+
+[YMakeTest2]
+
+lang = [ "C++", "Rust", "C" ]
+c.std = 11
+c.compiler = "clang"
+
+cpp.std = 14
+cpp.compiler = "clang++"
+
+src = "./src2/"
+
+build.type = "desktop"
+
+
+# PROJECT: YMakeTest3
+
+[YMakeTest3]
+
+lang = "C"
+c.std = 11
+c.compiler = "gcc"
+
+src = "./src3/"
+
+build.type = "shared"

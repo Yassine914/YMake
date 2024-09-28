@@ -1,0 +1,34 @@
+# PROJECT: Default
+
+[Default]
+
+lang = [ "C++" ]
+
+cpp.std = 14
+cpp.compiler = "clang++"
+
+build.type = "executable"
+build.dir = "./build"
+
+src = "./src"
+
+includes = [
+    "./src"
+]
+
+# replace with your libraries
+libs = [
+    {name = "GLFW", path = "./thirdparty/GLFW/", include = "./thirdparty/GLFW/include"}
+]
+
+[Default.compiler]
+defines.debug = [
+    "DDEBUG",
+    "DTEST=1"
+]
+
+flags = [
+    "-Wall",
+    "-Wextra",
+    "-g"
+]
