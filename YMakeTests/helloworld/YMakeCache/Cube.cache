@@ -17,5 +17,5 @@ clang++
 DDEBUG
 3
 -Wall
--Wargs
+-Wextra
 -g

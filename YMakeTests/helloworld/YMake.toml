@@ -19,6 +19,6 @@ defines.debug= [
 
 flags = [
     "-Wall",
-    "-Wargs",
+    "-Wextra",
     "-g"
 ]

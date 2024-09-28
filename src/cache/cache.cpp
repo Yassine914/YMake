@@ -366,13 +366,12 @@ bool HasFileChanged(const std::string &filepath, const FileMetadata &cachedMetad
     return (currentLastWriteTime != cachedMetadata.lastWriteTime || currentFileSize != cachedMetadata.fileSize);
 }
 
-void SaveMetadataCache(const std::string &dir, const std::unordered_map<std::string, FileMetadata> &metadataCache)
+void SaveMetadataCache(const std::string &filepath, const std::unordered_map<std::string, FileMetadata> &metadataCache)
 {
-    std::ofstream cacheFile(dir);
+    std::ofstream cacheFile(filepath);
     if(!cacheFile.is_open())
     {
-        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't save cache to file: ", YMAKE_CACHE_DIR, "/",
-             YMAKE_METADATA_CACHE_FILENAME, "\n");
+        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't save cache to file: ", filepath, "\n");
         throw Y::Error("couln't save file metadata cache.\n");
     }
 
@@ -388,13 +387,11 @@ void SaveMetadataCache(const std::string &dir, const std::unordered_map<std::str
 // create metadata(vec of filepaths, proj.name) -> void
 void CreateMetadataCache(const std::vector<std::string> files, std::string dir)
 {
-    std::string path(dir);
-
     // create dirs.
     try
     {
-        CreateDir(path.c_str());
         CreateCacheDirectories();
+        CreateDir(dir.c_str());
     }
     catch(Y::Error err)
     {
@@ -412,14 +409,18 @@ void CreateMetadataCache(const std::vector<std::string> files, std::string dir)
         metadata[file] = FileMetadata{currentLastWriteTime, currentFileSize};
     }
 
+    // TODO: fix this mess of a problem: taking dir not filepath...
+    // either hardcode (like other cache funcs) or take as another arg...
+    // for now -> hardcode
+    std::string filename = std::string(dir) + "/" + YMAKE_METADATA_CACHE_FILENAME;
     // save to file.
     try
     {
-        SaveMetadataCache(path.c_str(), metadata);
+        SaveMetadataCache(filename.c_str(), metadata);
     }
     catch(Y::Error &err)
     {
-        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't create metadata for path: ", path, "\n");
+        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't create metadata for path: ", filename, "\n");
         return;
     }
 }

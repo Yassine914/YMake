@@ -302,7 +302,8 @@ std::string SelectiveCompileUnit(const Project &proj, BuildMode mode, const std:
     }
     catch(Y::Error &err)
     {
-        LLOG(RED_TEXT("[YMAKE ERROR: ]"), err.what(), "\n");
+        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't load cache from cache directory.\n\t", err.what(), "\n");
+        exit(1);
     }
 
     // if file doesn't exist in cache reg -> recompile
@@ -374,7 +375,7 @@ void LinkAll(const Project &proj, const std::vector<std::string> &translationUni
 void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
 {
     std::string projectCacheDir(YMAKE_CACHE_DIR);
-    projectCacheDir += "/" + proj.name;
+    projectCacheDir += std::string("/") + proj.name;
 
     // get all files.
     std::vector<std::string> files = Cache::GetSrcFilesRecursive(proj.src);
@@ -401,11 +402,13 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
             // compile source files
         }
 
+        Cache::CreateDir(projectCacheDir.c_str());
+
         // build project.
         // compile source files.
         for(const auto &file : files)
         {
-            translationUnits.push_back(SelectiveCompileUnit(proj, mode, file, projectCacheDir));
+            translationUnits.push_back(CompileUnit(proj, mode, file.c_str(), projectCacheDir.c_str()));
         }
 
         try
