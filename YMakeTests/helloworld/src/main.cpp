@@ -8,7 +8,7 @@ const int width  = 80;
 const int height = 22;
 
 const float cubeSize   = 20.0f;
-const float distance   = 3.0f;
+const float distance   = 5.0f;
 const float angleSpeed = 0.05f;
 
 // clang-format off

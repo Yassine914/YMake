@@ -177,9 +177,12 @@ std::string PreprocessUnit(const Project &proj, const std::string &file, const s
 
 void CreatePreprocessedCache(const std::vector<std::string> &files, const char *projCacheDir)
 {
+    LTRACE(true, "creating cache for preprocessed files.\n");
+
     // create files/dirs
     Cache::CreateDir(projCacheDir);
     std::string cachefilepath = std::string(projCacheDir) + "/" + YMAKE_PREPROCESS_CACHE_FILENAME;
+
     // create preprocess_metadata.cache file.
     std::ofstream cachefile(cachefilepath);
     if(!cachefile.is_open())
@@ -268,8 +271,11 @@ std::map<std::string, u64> LoadPreprocessedCache(const char *projCacheDir)
 std::vector<std::string> GeneratePreprocessedFiles(const Project &proj, const std::vector<std::string> &files,
                                                    const char *path)
 {
+    LTRACE(true, "generating preprocessed files for caching.\n");
+
     // cache
     std::string cacheDir = std::string(YMAKE_CACHE_DIR) + "/" + proj.name;
+    Cache::CreateDir(cacheDir.c_str());
 
     std::vector<std::string> compiledFiles;
     for(const auto &file : files)
@@ -294,6 +300,8 @@ std::vector<std::string> GeneratePreprocessedFiles(const Project &proj, const st
 std::string SelectiveCompileUnit(const Project &proj, BuildMode mode, const std::string &filepath,
                                  const std::string &cacheDir)
 {
+    LTRACE(true, "checking if file \'", filepath, "\' needs re-compiling...\n");
+
     // load cache.
     std::map<std::string, u64> cacheReg;
     try
@@ -310,24 +318,42 @@ std::string SelectiveCompileUnit(const Project &proj, BuildMode mode, const std:
     if(cacheReg.count(filepath.c_str()) == 0)
     {
         // update cache.
+        LTRACE(true, "file is not in the cache registry -> it needs recompiling.\n");
         UpdatePreprocessedCache(filepath.c_str(), cacheDir.c_str());
         return CompileUnit(proj, mode, filepath.c_str(), cacheDir.c_str());
     }
 
     if(cacheReg[filepath.c_str()] != Cache::GetFileSize(filepath.c_str()))
     {
+        LTRACE(true, "file is in the cache registry. and file size has changed. recompiling.\n");
         UpdatePreprocessedCache(filepath.c_str(), cacheDir.c_str());
         return CompileUnit(proj, mode, filepath.c_str(), cacheDir.c_str());
     }
 
-    return std::string();
+    LTRACE(true, "file is in the cache registry, but it is unchanged.\n");
+
+    Compiler compiler = Compiler::NONE;
+
+    for(const Lang lang : proj.langs)
+    {
+        if(lang == Lang::CXX)
+            compiler = WhatCompiler(proj.cppCompiler.c_str());
+    }
+
+    if(compiler == Compiler::NONE)
+        compiler = WhatCompiler(proj.cCompiler.c_str());
+
+    fs::path inputPath(filepath);
+    fs::path outputPath = Cache::ConcatenatePath(cacheDir, inputPath.stem().string());
+    outputPath += (compiler == Compiler::MSVC) ? ".obj" : ".o";
+
+    return outputPath.string();
 }
 
 // compiles and links lib -> returns path to built lib file
 Library BuildLibrary(const Project &proj, const Library &lib, const char *buildDir)
 {
-    // TODO:
-    // compile and build (all in one step..) [or MAYBE: add multithreading...] (later...)
+    // TODO: compile and build (all in one step..) [or MAYBE: add multithreading...] (later...)
     return lib;
 }
 
@@ -338,15 +364,19 @@ void LinkAll(const Project &proj, const std::vector<std::string> &translationUni
 
     Compiler compiler   = Compiler::NONE;
     std::string command = "";
-    if(proj.cppCompiler == "")
+    for(const Lang &lang : proj.langs)
+    {
+        if(lang == Lang::CXX)
+        {
+            compiler = WhatCompiler(proj.cppCompiler.c_str());
+            command += std::string(proj.cppCompiler) + " ";
+        }
+    }
+
+    if(compiler == Compiler::NONE)
     {
         compiler = WhatCompiler(proj.cCompiler.c_str());
         command += std::string(proj.cCompiler) + " ";
-    }
-    else
-    {
-        compiler = WhatCompiler(proj.cppCompiler.c_str());
-        command += std::string(proj.cppCompiler) + " ";
     }
 
     // command like: clang++ main.o something.o -o project.exe -L./libpath -llibname
@@ -374,8 +404,11 @@ void LinkAll(const Project &proj, const std::vector<std::string> &translationUni
 
 void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
 {
-    std::string projectCacheDir(YMAKE_CACHE_DIR);
-    projectCacheDir += std::string("/") + proj.name;
+    // TODO: add multithreading and start a timer to see how long it takes to compile.
+    // maybe give a percentage based on the no. of files [ % per file = (no. files) / 100% ]
+
+    LTRACE(true, "building project: ", proj.name, "...\n");
+    std::string projectCacheDir = std::string(YMAKE_CACHE_DIR) + "/" + proj.name;
 
     // get all files.
     std::vector<std::string> files = Cache::GetSrcFilesRecursive(proj.src);
@@ -385,6 +418,8 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
     // recreate the cache.
     if(cleanBuild || !Cache::DirExists(projectCacheDir.c_str()))
     {
+        LTRACE(true, "cache doesn't exist. performing a clean build.\n");
+
         // remove old cache.
         if(!Cache::RemoveAllMetadataCache())
             throw Y::Error("couldn't remove projects cache files.");
@@ -449,6 +484,41 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
     // get list of all translation units.
     //      link all files and libs.
     // exit...
+
+    LTRACE(true, "cache dir exists. building project...\n");
+
+    // build libs.
+    std::vector<Library> compiledLibs;
+    for(auto lib : proj.libs)
+    {
+        Library compiledLib = BuildLibrary(proj, lib, proj.buildDir.c_str());
+
+        // the compiler only needs a path to the lib (great!)
+        compiledLibs.push_back(compiledLib);
+    }
+
+    // build project.
+    // compile source files.
+    for(const auto &file : files)
+    {
+        translationUnits.push_back(SelectiveCompileUnit(proj, mode, file.c_str(), projectCacheDir.c_str()));
+    }
+
+    // take the list of obj files and link them all...
+    try
+    {
+        LinkAll(proj, translationUnits, compiledLibs);
+    }
+    catch(Y::Error &err)
+    {
+        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't link files and libraries for project: ", proj.name, "\n");
+        exit(1);
+    }
+
+    LLOG(GREEN_TEXT("[YMAKE BUILD]: "), "successfully built project \'", proj.name, "\', binary at dir: \'",
+         proj.buildDir, "\n");
+
+    exit(0);
 }
 
 } // namespace Y::Build

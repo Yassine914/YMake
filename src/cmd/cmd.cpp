@@ -23,37 +23,29 @@ CommandInfo ParseCLI(std::vector<std::string> arguments, std::vector<Command> co
     std::map<std::string, std::string> foundArgs;
     std::vector<std::string> cmdIn;
 
+    // FIXME: check if a command has value or not while parsing, not after.
+
     for(usize i = 0; i < args.size(); i++)
     {
-        // argument without dash -> stdin
-        if(args[i][0] != '-')
+        // argument with dash -> argument.
+        if(args[i][0] == '-')
         {
-            cmdIn.push_back(args[i]);
-        }
-        // argument with dash -> followed by another unknown arg
-        else if(args[i][0] == '-' && i < (args.size() - 1))
-        {
-            // followed by an argument... (no value.)
-            if(args[i + 1][0] == '-')
+            // followed by another argument or is the last argument (no value)
+            if(i == args.size() - 1 || args[i + 1][0] == '-')
             {
                 foundArgs[args[i]] = "NULL";
             }
-            // followed by a value;
+            // followed by a value
             else
             {
                 foundArgs[args[i]] = args[i + 1];
-                i++;
+                i++; // skip the value in the next iteration
             }
         }
-        // is last argument -> not followed by a value.
-        else if(args[i][0] == '-' && i == (args.size() - 1))
-        {
-            foundArgs[args[i]] = "NULL";
-        }
+        // argument without dash -> stdin
         else
         {
-            calledCmd.OutputCommandInfo();
-            throw Y::Error("command is incorrect");
+            cmdIn.push_back(args[i]);
         }
     }
 
@@ -81,6 +73,7 @@ CommandInfo ParseCLI(std::vector<std::string> arguments, std::vector<Command> co
                 else
                 {
                     LLOG(RED_TEXT("[YMAKE ERROR]: "), "command \'", calledCmd.name, "\' is incorrect.\n");
+                    calledCmd.OutputCommandInfo();
                     throw Y::Error("incorrect arguments for a command.");
                 }
             }
@@ -94,17 +87,17 @@ CommandInfo ParseCLI(std::vector<std::string> arguments, std::vector<Command> co
         }
     }
 
-    // LLOG(BLUE_TEXT("COMMAND INPUT: \n"));
-    // for(auto entry : cmdIn)
-    // {
-    //     LLOG("\t", entry, "\n");
-    // }
+    LTRACE(true, BLUE_TEXT("COMMAND INPUT: \n"));
+    for(auto entry : cmdIn)
+    {
+        LTRACE(true, "\t", entry, "\n");
+    }
 
-    // LLOG(BLUE_TEXT("COMMAND ARGS: \n"));
-    // for(auto &[k, v] : foundAvailableArgs)
-    // {
-    //     LLOG("\tkey: ", k, "\tval: ", v, "\n");
-    // }
+    LTRACE(true, BLUE_TEXT("COMMAND ARGS: \n"));
+    for(auto &[k, v] : foundAvailableArgs)
+    {
+        LTRACE(true, "\tkey: ", k, "\tval: ", v, "\n");
+    }
 
     CommandInfo info = {
         .cmd       = calledCmd,
@@ -234,6 +227,8 @@ void SetupProjectInfo(std::vector<std::string> &input, std::map<std::string, std
     (void)input;
 
     std::string path = (args.size() > 0) ? args["config"] : YMAKE_DEFAULT_FILE;
+
+    LTRACE(true, "begin setup. config path: ", path, "\n");
 
     // always reload the cache when setting up
     std::vector<Project> projects = Parse::LoadProjectsFromConfig(path.c_str());
@@ -368,7 +363,7 @@ void CleanAllCache(std::vector<std::string> &input, std::map<std::string, std::s
     else
     {
         LLOG(RED_TEXT("[YMAKE ERROR]:"), "failed to remove all cache.\n");
-        LLOG("\tif errors persist, try removing the directory: \'", YMAKE_CACHE_DIR, "\' manualy.\n");
+        LLOG("\tif errors persist, try removing the directory: \'", YMAKE_CACHE_DIR, "\' manually.\n");
     }
 
     return;

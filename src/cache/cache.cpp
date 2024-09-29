@@ -56,18 +56,29 @@ bool DirExists(const char *path)
     return (fs::exists(path) && fs::is_directory(path));
 }
 
-std::time_t ToTimeT(std::string time)
+std::time_t ToTimeT(const std::string &time)
 {
     std::tm tm = {};
     std::istringstream ss(time);
-    ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
-    return std::mktime(&tm);
+    ss >> std::get_time(&tm, "%Y-%m-%d:%H-%M-%S");
+    return std::mktime(&tm); // Use mktime for local time
+}
+
+// Converts std::time_t to a string timestamp
+std::string ToString(std::time_t time)
+{
+    std::tm tm = *std::localtime(&time); // Use localtime for local time
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%Y-%m-%d:%H-%M-%S");
+    return oss.str();
 }
 
 std::time_t GetTimeSinceLastWrite(const char *file)
 {
-    auto currentLastWriteTime = fs::last_write_time(file);
-    return std::chrono::duration_cast<std::chrono::seconds>(currentLastWriteTime.time_since_epoch()).count();
+    auto ftime = fs::last_write_time(file);
+    auto sctp  = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+        ftime - fs::file_time_type::clock::now() + std::chrono::system_clock::now());
+    return std::chrono::system_clock::to_time_t(sctp);
 }
 
 u64 GetFileSize(const char *file)
@@ -98,6 +109,8 @@ std::string ToAbsolutePath(const std::string &path)
 // validates if a cache is valid or not based on the timestamp and config filepath
 bool IsConfigCacheValid(const char *configFilePath)
 {
+    LTRACE(true, "checking if cache is valid...\n");
+
     try
     {
         CreateCacheDirectories();
@@ -107,32 +120,13 @@ bool IsConfigCacheValid(const char *configFilePath)
         LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't create cache directories.\n\t", err.what(), "\n");
     }
 
-    std::string cachefilepath = std::string(YMAKE_CACHE_DIR) + "/" + YMAKE_CONFIG_PATH_CACHE_FILENAME;
-    if(!fs::exists(cachefilepath.c_str()))
-        return false;
-
-    // read config filepath
-    std::ifstream filepathCacheFile(std::string(YMAKE_CACHE_DIR) + "/" + YMAKE_CONFIG_PATH_CACHE_FILENAME);
-    std::string filepath;
-    if(filepathCacheFile.is_open())
-    {
-        std::getline(filepathCacheFile, filepath);
-        filepathCacheFile.close();
-    }
-    else
-    {
-        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't open cache file to read config file path.\n");
-        return false;
-    }
-
-    if(filepath != configFilePath)
-        return false;
-
     // read config file metadata.
-    std::string configMetaFilePath(YMAKE_CACHE_DIR);
-    configMetaFilePath += std::string("/") + YMAKE_CONFIG_METADATA_CACHE_FILENAME;
-    auto currentLastTimeSinceWrite = GetTimeSinceLastWrite(configMetaFilePath.c_str());
-    auto currentFileSize           = GetFileSize(configMetaFilePath.c_str());
+    std::string configMetaFilePath = std::string(YMAKE_CACHE_DIR) + "/" + YMAKE_CONFIG_METADATA_CACHE_FILENAME;
+    if(!fs::exists(configMetaFilePath.c_str()))
+    {
+        LTRACE(true, "couldn't find the cache file: config.cache, cache is invalid.\n");
+        return false;
+    }
 
     std::ifstream configMetaFile(configMetaFilePath.c_str());
     if(!configMetaFile.is_open())
@@ -141,21 +135,46 @@ bool IsConfigCacheValid(const char *configFilePath)
         return false;
     }
 
+    std::time_t currentLastTimeSinceWrite = GetTimeSinceLastWrite(configFilePath);
+    u64 currentFileSize                   = GetFileSize(configFilePath);
+
     std::string path;
-    std::string cachedConfigTime;
-    std::string cachedConfigSize;
+    std::string cachedConfigTimeStr;
+    std::string cachedConfigSizeStr;
 
     std::string line;
     while(std::getline(configMetaFile, line))
     {
         std::istringstream iss(line);
         iss >> path;
-        iss >> cachedConfigTime;
-        iss >> cachedConfigSize;
+        iss >> cachedConfigTimeStr;
+        iss >> cachedConfigSizeStr;
     }
 
-    if(currentFileSize != std::atoi(cachedConfigSize.c_str()) || currentLastTimeSinceWrite != ToTimeT(cachedConfigTime))
+    u64 cachedConfigSize = std::atoi(cachedConfigSizeStr.c_str());
+
+    if(ToAbsolutePath(path) != ToAbsolutePath(configFilePath))
     {
+        LTRACE(true, "config file location changed. cache is invalid.\n");
+        return false;
+    }
+
+    if(currentFileSize != cachedConfigSize || ToString(currentLastTimeSinceWrite) != cachedConfigTimeStr)
+    {
+        if(currentFileSize != cachedConfigSize)
+        {
+            LTRACE(true, "config file's SIZE have been updated. cache is invalid.\n");
+            LTRACE(true, "\tcached size: ", cachedConfigSize, "\n");
+            LTRACE(true, "\tfound file size: ", currentFileSize, "\n");
+        }
+        else
+        {
+            LTRACE(true, "config file's LAST TIME SINCE WRITE have been updated. cache is invalid.\n");
+            LTRACE(true, "\tcached time as string:\t", cachedConfigTimeStr, "\n");
+            LTRACE(true, "\tcached time as time_t:\t", ToString(ToTimeT(cachedConfigTimeStr)), "\n");
+            LTRACE(true, "\tfound file time:\t", ToString(currentLastTimeSinceWrite), "\n");
+        }
+
         return false;
     }
 
@@ -173,22 +192,20 @@ bool IsConfigCacheValid(const char *configFilePath)
         return false;
     }
 
-    // convert the timestamp string back to a time_t object
-    std::tm tm = {};
-    std::istringstream ss(timestamp);
-    ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
-    std::time_t cacheTime = std::mktime(&tm);
-
     // get current time
     auto now                = std::chrono::system_clock::now();
     std::time_t currentTime = std::chrono::system_clock::to_time_t(now);
 
     // calc difference in seconds
-    f64 timeDiff = std::difftime(currentTime, cacheTime);
+    f64 timeDiff = std::difftime(currentTime, ToTimeT(timestamp));
 
     if(timeDiff > YMAKE_TIMESTAMP_THRESHHOLD_SEC)
+    {
+        LTRACE(true, "time diff is bigger than threshhold. cache is invalid.\n");
         return false; // cache is outdated.
+    }
 
+    // if it reached here, then cache is valid.
     return true;
 }
 
@@ -198,6 +215,7 @@ void CreateProjectsCache(const std::vector<Project> &projects, const char *confi
     try
     {
         CreateCacheDirectories();
+        LTRACE(true, "created cache directory \'YMakeCache\'\n");
     }
     catch(Y::Error err)
     {
@@ -207,11 +225,7 @@ void CreateProjectsCache(const std::vector<Project> &projects, const char *confi
     // add timestamp
     auto now                = std::chrono::system_clock::now();
     std::time_t currentTime = std::chrono::system_clock::to_time_t(now);
-
-    // convert to a readable format
-    std::stringstream ss;
-    ss << std::put_time(std::localtime(&currentTime), "%Y-%m-%d %H:%M:%S");
-    std::string timestamp = ss.str();
+    std::string timestamp   = ToString(currentTime);
 
     // write the timestamp to a cache file
     std::ofstream timeCacheFile(std::string(YMAKE_CACHE_DIR) + "/" + YMAKE_TIMESTAMP_CACHE_FILENAME);
@@ -219,25 +233,14 @@ void CreateProjectsCache(const std::vector<Project> &projects, const char *confi
     {
         timeCacheFile << timestamp;
         timeCacheFile.close();
+        LTRACE(true, "created timestamp cache file correctly.\n");
     }
     else
     {
         LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't open cache file to write timestamp.\n");
     }
 
-    // write the config file path to a cache file.
-    std::ofstream filepathCacheFile(std::string(YMAKE_CACHE_DIR) + "/" + YMAKE_CONFIG_PATH_CACHE_FILENAME);
-    if(filepathCacheFile.is_open())
-    {
-        filepathCacheFile << configFilePath << "\n";
-        filepathCacheFile.close();
-    }
-    else
-    {
-        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't open cache file to write config file path.\n");
-    }
-
-    // Write the names of all project files to a cache file
+    // write the names of all project files to a cache file
     std::ofstream projectsCacheFile(std::string(YMAKE_CACHE_DIR) + "/" + YMAKE_PROJECTS_CACHE_FILENAME);
     if(projectsCacheFile.is_open())
     {
@@ -246,6 +249,7 @@ void CreateProjectsCache(const std::vector<Project> &projects, const char *confi
             projectsCacheFile << proj.name << "\n";
         }
         projectsCacheFile.close();
+        LTRACE(true, "created cache file with project names.\n");
     }
     else
     {
@@ -266,24 +270,31 @@ void CreateProjectsCache(const std::vector<Project> &projects, const char *confi
         }
     }
 
+    LTRACE(true, "created cache for each project in the config.\n");
+
     // config metadata cache file
     std::string configCachePath(YMAKE_CACHE_DIR);
     configCachePath += std::string("/") + YMAKE_CONFIG_METADATA_CACHE_FILENAME;
     std::ofstream configCache(configCachePath);
     if(configCache.is_open())
     {
-        configCache << configFilePath << " " << GetTimeSinceLastWrite(configCachePath.c_str()) << " "
-                    << GetFileSize(configCachePath.c_str()) << "\n";
+        configCache << configFilePath << " " << ToString(GetTimeSinceLastWrite(configFilePath)) << " "
+                    << GetFileSize(configFilePath) << "\n";
     }
+
+    configCache.close();
+
+    LTRACE(true, "created cache for config file metadata.\n");
 }
 
 // loads from cache without checking cache validation.
 std::vector<Project> LoadProjectsCache()
 {
+    LTRACE(true, "loading config files from cache.\n");
+
     std::vector<Project> projects;
 
     std::ifstream namesCacheFile(std::string(YMAKE_CACHE_DIR) + "/" + YMAKE_PROJECTS_CACHE_FILENAME);
-
     if(!namesCacheFile.is_open())
     {
         LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't load the projects cache file.\n");
@@ -311,6 +322,8 @@ std::vector<Project> LoadProjectsCache()
 
     namesCacheFile.close();
 
+    LTRACE(true, "successfully loaded projects' config from cache.\n");
+
     return projects;
 }
 
@@ -318,7 +331,6 @@ std::vector<Project> LoadProjectsCache()
 std::vector<Project> SafeLoadProjectsFromCache(const char *configPath)
 {
     std::vector<Project> projects;
-    // TODO: either fix the isConfigCacheValid func or this one.
     if(Cache::IsConfigCacheValid(configPath))
     {
         projects = Cache::LoadProjectsCache();
@@ -375,11 +387,15 @@ void SaveMetadataCache(const std::string &filepath, const std::unordered_map<std
         throw Y::Error("couln't save file metadata cache.\n");
     }
 
+    LTRACE(true, "saving metadata cache to disk...\n");
+
     // add data to the file.
     for(auto &[path, data] : metadataCache)
     {
         cacheFile << ToAbsolutePath(path) << " " << data.lastWriteTime << " " << data.fileSize << "\n";
     }
+
+    LTRACE(true, "successfully created metadata cache at path: ", filepath, "\n");
 
     cacheFile.close();
 }
@@ -409,9 +425,8 @@ void CreateMetadataCache(const std::vector<std::string> files, std::string dir)
         metadata[file] = FileMetadata{currentLastWriteTime, currentFileSize};
     }
 
-    // TODO: fix this mess of a problem: taking dir not filepath...
-    // either hardcode (like other cache funcs) or take as another arg...
-    // for now -> hardcode
+    LTRACE(true, "created metadata cache (in program) successfully.\n");
+
     std::string filename = std::string(dir) + "/" + YMAKE_METADATA_CACHE_FILENAME;
     // save to file.
     try
@@ -427,12 +442,22 @@ void CreateMetadataCache(const std::vector<std::string> files, std::string dir)
 
 std::unordered_map<std::string, FileMetadata> LoadMetadataCache(const std::string &cacheFilepath)
 {
+    LTRACE(true, "trying to load metadata cache from disk...\n");
+
     std::unordered_map<std::string, FileMetadata> metadataCache;
+
+    if(!fs::exists(cacheFilepath.c_str()))
+    {
+        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't load cache from file: ", cacheFilepath,
+             "\n\tfile doesn't exist.\n");
+        throw Y::Error("couldn't load cache from a file.\n");
+    }
+
     std::ifstream cacheFile(cacheFilepath);
     if(!cacheFile.is_open())
     {
-        std::cerr << "Couldn't open cache file: " << cacheFilepath << std::endl;
-        throw std::runtime_error("Couldn't open cache file.");
+        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't open cache file: ", cacheFilepath, "\n");
+        throw Y::Error("couldn't open a cache file.");
     }
 
     std::string line;
@@ -446,6 +471,8 @@ std::unordered_map<std::string, FileMetadata> LoadMetadataCache(const std::strin
             metadataCache[filepath.c_str()] = metadata;
         }
     }
+
+    LTRACE(true, "successfully loaded metadata cache from disk.\n");
 
     return metadataCache;
 }
@@ -502,6 +529,12 @@ std::vector<std::string> GetSrcFilesRecursive(const std::string &dirPath)
                 files.push_back(ToAbsolutePath(entry.path().string()));
             }
         }
+    }
+
+    LTRACE(true, "source files found in ", dirPath, ": \n");
+    for(const auto &file : files)
+    {
+        LTRACE(true, "\t", file, "\n");
     }
 
     return files;

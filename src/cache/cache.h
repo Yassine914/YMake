@@ -16,7 +16,7 @@ void CreateCacheDirectories();
 
 bool DirExists(const char *path);
 
-std::time_t ToTimeT(std::string time);
+std::time_t ToTimeT(const std::string &time);
 
 std::time_t GetTimeSinceLastWrite(const char *file);
 

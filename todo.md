@@ -1,41 +1,23 @@
 # YMake Todo.md
 
-- [ ] fix command system (apparently)
-        arguments are broken..
+- [ ] fix caching error(s):
 
-- [ ] fix caching system
+## ERROR: it doesn't create preprocessed files (obj.i)
 
-as far as I know: commands that work:
-        ymake
-        ymake default
-        ymake help
-        ymake clean
-        ymake setup
-        ymake list
 
-functions that need to work:
-        ymake build
+## OMG IT WORKSSSSSSSSSSSSSSSSSSSSSSSS
 
 ```cpp
 
-➜ .\ymake.exe build Cube
-COMMAND INPUT: 
-        Cube
-COMMAND ARGS: 
-[YMAKE ERROR]: couldn't open cache file to read config file path.
+[TRACE \build\build.cpp:410 08:23:50]   building project: Cube...
+[TRACE \cache\cache.cpp:533 08:23:50]   source files found in ./src:
+[TRACE \cache\cache.cpp:536 08:23:50]           G:\Projects\CodeProjects\YMake\YMakeTests\helloworld\src\main.cpp
+[TRACE \build\build.cpp:488 08:23:50]   cache dir exists. building project...
+[TRACE \build\build.cpp:303 08:23:50]   checking if file 'G:\Projects\CodeProjects\YMake\YMakeTests\helloworld\src\main.cpp' needs re-compiling...
+[TRACE \build\build.cpp:333 08:23:50]   file is in the cache registry, but it is unchanged.
+[YMAKE BUILD]: successfully built project 'Cube', binary at dir: './build
 
 ```
 
-- [ ] update default config for new parsing
-- [ ] need to add debug logs throughout for debug versions.
+## SEE THAT! loaded from cache baby!!!!!!!!!!!!!!!!!
 
-## NEED
-
-- [ ] fix some error messsages (especially cache error messages)
-- [ ] fix formatting on the listing project thing
-
-### THINKING
-
-- [ ] i'm thinking of redoing the original caching system.
-        there are a few too many cache files to keep track of.
-        as well as fixing the new one (per project cache)
