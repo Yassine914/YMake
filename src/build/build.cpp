@@ -132,6 +132,7 @@ std::string CompileUnit(const Project &proj, BuildMode mode, const char *filepat
 // takes a /path/to/base.c -> /new/path/base.i
 std::string PreprocessUnit(const Project &proj, const std::string &file, const std::string &path)
 {
+    LTRACE(true, "generating preprocessed file for src: ", file, "\n");
     FileType fileType = GetFileType(file.c_str());
 
     Compiler compiler   = Compiler::NONE;
@@ -156,6 +157,8 @@ std::string PreprocessUnit(const Project &proj, const std::string &file, const s
     fs::path inputPath(file);
     fs::path outputPath = Cache::ConcatenatePath(path, inputPath.stem().string());
     outputPath += std::string(".i");
+
+    LTRACE(true, "about to create preprocessed cache at: ", outputPath.string(), "\n");
 
     command += (compiler == Compiler::MSVC) ? COMP_MSVC_OUTPUT_FILE(outputPath.string())
                                             : COMP_OUTPUT_FILE(outputPath.string());
@@ -287,6 +290,7 @@ std::vector<std::string> GeneratePreprocessedFiles(const Project &proj, const st
     // generate cache.
     try
     {
+        LTRACE(true, "generating cache for .i files.\n");
         CreatePreprocessedCache(compiledFiles, cacheDir.c_str());
     }
     catch(Y::Error &err)
@@ -452,7 +456,13 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
             Cache::CreateMetadataCache(files, projectCacheDir.c_str());
 
             // gen cache for .i files.
-            CreatePreprocessedCache(files, projectCacheDir.c_str());
+            std::vector<std::string> preprocessedFiles =
+                GeneratePreprocessedFiles(proj, files, projectCacheDir.c_str());
+
+            for(auto file : preprocessedFiles)
+            {
+                LTRACE(true, "generated file at: ", file, "\n");
+            }
         }
         catch(Y::Error &err)
         {
