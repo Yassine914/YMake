@@ -5,10 +5,10 @@
 #include <chrono>
 
 const int width  = 80;
-const int height = 22;
+const int height = 33;
 
-const float cubeSize   = 20.0f;
-const float distance   = 5.0f;
+const float cubeSize   = 5.0f;
+const float distance   = 2.0f;
 const float angleSpeed = 0.05f;
 
 // clang-format off

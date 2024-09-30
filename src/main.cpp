@@ -9,6 +9,7 @@
 
 int main(int argc, char **argv)
 {
+    LOG_CHANGE_PRIORITY(LOG_NONE);
     std::vector<std::string> args(argv, argv + argc);
 
     // clang-format off
