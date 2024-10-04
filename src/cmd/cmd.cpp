@@ -21,69 +21,74 @@ CommandInfo ParseCLI(std::vector<std::string> arguments, std::vector<Command> co
     }
 
     std::map<std::string, std::string> foundArgs;
+    std::map<std::string, std::string> foundAvailableArgs;
     std::vector<std::string> cmdIn;
 
     // FIXME: check if a command has value or not while parsing, not after.
 
+    // parse the arguments first.
+    std::vector<std::string> usedArgs;
     for(usize i = 0; i < args.size(); i++)
     {
-        // argument with dash -> argument.
+        // ex: Proj1 --config-file ./YMake.toml -C
         if(args[i][0] == '-')
         {
-            // followed by another argument or is the last argument (no value)
-            if(i == args.size() - 1 || args[i + 1][0] == '-')
+            // found an arg.
+            bool found = false;
+            for(CommandArgument &arg : calledCmd.args)
             {
-                foundArgs[args[i]] = "NULL";
+                // looking for it in the options for the command.
+                if(args[i] == arg.shortOpt || args[i] == arg.longOpt)
+                {
+                    // found it!
+                    found = true;
+                    if(arg.valType == ValueType::BOOL || arg.valType == ValueType::NONE)
+                    {
+                        // no need to check the other args.
+                        foundAvailableArgs[arg.name] = "NULL";
+                        usedArgs.push_back(args[i]);
+                    }
+                    else if((i + 1) < args.size() && args[i + 1][0] != '-')
+                    {
+                        // need to check the next val.
+                        foundAvailableArgs[arg.name] = args[i + 1];
+                        usedArgs.push_back(args[i]);
+                        usedArgs.push_back(args[i + 1]);
+                        i++;
+                    }
+                    else
+                    {
+                        LLOG(RED_TEXT("[YMAKE ERROR]: "), "command \'", calledCmd.name, "\' is incorrect.\n");
+                        calledCmd.OutputCommandInfo();
+                        throw Y::Error("incorrect arguments for a command.");
+                    }
+                }
             }
-            // followed by a value
-            else
+
+            if(!found)
             {
-                foundArgs[args[i]] = args[i + 1];
-                i++; // skip the value in the next iteration
+                LLOG(RED_TEXT("[YMAKE ERROR]: "), "command \'", calledCmd.name, "\' is incorrect.\n");
+                calledCmd.OutputCommandInfo();
+                throw Y::Error("incorrect arguments for a command.");
             }
-        }
-        // argument without dash -> stdin
-        else
-        {
-            cmdIn.push_back(args[i]);
         }
     }
 
-    // throw error if a found arg is not specified.
-    std::map<std::string, std::string> foundAvailableArgs;
-    for(auto &[k, v] : foundArgs)
+    // parse the std in.
+    for(usize i = 0; i < args.size(); i++)
     {
-        bool found = false;
-        for(CommandArgument &arg : calledCmd.args)
+        bool used = false;
+        for(auto arg : usedArgs)
         {
-            if(k == arg.shortOpt || k == arg.longOpt)
+            if(args[i] == arg)
             {
-                found = true;
-
-                foundAvailableArgs[arg.name] = v;
-            }
-            else
-            {
-                if(k == "NULL" && (arg.valType == ValueType::BOOL || arg.valType == ValueType::NONE))
-                {
-                    found = true;
-
-                    foundAvailableArgs[arg.name] = "NULL";
-                }
-                else
-                {
-                    LLOG(RED_TEXT("[YMAKE ERROR]: "), "command \'", calledCmd.name, "\' is incorrect.\n");
-                    calledCmd.OutputCommandInfo();
-                    throw Y::Error("incorrect arguments for a command.");
-                }
+                used = true;
             }
         }
 
-        if(!found)
+        if(!used)
         {
-            LLOG(RED_TEXT("[YMAKE ERROR]: "), "provided unknown argument: ", k, " for command: ", calledCmd.name, "\n");
-            calledCmd.OutputCommandInfo();
-            throw Y::Error("user passed an unkown/invalid argument");
+            cmdIn.push_back(args[i]);
         }
     }
 

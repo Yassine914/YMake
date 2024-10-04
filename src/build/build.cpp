@@ -301,16 +301,17 @@ std::vector<std::string> GeneratePreprocessedFiles(const Project &proj, const st
     return compiledFiles;
 }
 
-std::string SelectiveCompileUnit(const Project &proj, BuildMode mode, const std::string &filepath,
+std::string SelectiveCompileUnit(const Project &proj, BuildMode mode, const std::string &filePath,
                                  const std::string &cacheDir)
 {
+    std::string filepath = Cache::ToAbsolutePath(filePath);
     LTRACE(true, "checking if file \'", filepath, "\' needs re-compiling...\n");
 
     // load cache.
-    std::map<std::string, u64> cacheReg;
+    std::unordered_map<std::string, Cache::FileMetadata> cacheReg;
     try
     {
-        cacheReg = LoadPreprocessedCache(cacheDir.c_str());
+        cacheReg = Cache::LoadMetadataCache(std::string(cacheDir.c_str()) + "/" + YMAKE_METADATA_CACHE_FILENAME);
     }
     catch(Y::Error &err)
     {
@@ -318,19 +319,46 @@ std::string SelectiveCompileUnit(const Project &proj, BuildMode mode, const std:
         exit(1);
     }
 
+    LTRACE(true, "files found in metadata.cache for proj: ", proj.name, ", are: \n");
+    for(auto &[k, v] : cacheReg)
+    {
+        LTRACE(true, "entry => k: ", k, "\tv: ", v.fileSize, "\n");
+    }
+
     // if file doesn't exist in cache reg -> recompile
-    if(cacheReg.count(filepath.c_str()) == 0)
+    if(cacheReg.count(filepath) == 0)
     {
         // update cache.
         LTRACE(true, "file is not in the cache registry -> it needs recompiling.\n");
-        UpdatePreprocessedCache(filepath.c_str(), cacheDir.c_str());
+        Cache::UpdateMetadataCache(filepath, cacheDir.c_str());
+
+        std::string preFile = PreprocessUnit(proj, filepath, cacheDir.c_str());
+        UpdatePreprocessedCache(preFile.c_str(), cacheDir.c_str());
+
+        // recompile
         return CompileUnit(proj, mode, filepath.c_str(), cacheDir.c_str());
     }
 
-    if(cacheReg[filepath.c_str()] != Cache::GetFileSize(filepath.c_str()))
+    if(cacheReg[filepath.c_str()].fileSize != Cache::GetFileSize(filepath.c_str()))
     {
         LTRACE(true, "file is in the cache registry. and file size has changed. recompiling.\n");
-        UpdatePreprocessedCache(filepath.c_str(), cacheDir.c_str());
+        Cache::UpdateMetadataCache(filepath, cacheDir.c_str());
+
+        std::string preFile = PreprocessUnit(proj, filepath, cacheDir.c_str());
+        UpdatePreprocessedCache(preFile.c_str(), cacheDir.c_str());
+
+        // recompile
+        return CompileUnit(proj, mode, filepath.c_str(), cacheDir.c_str());
+    }
+    else if(cacheReg[filepath.c_str()].lastWriteTime != Cache::GetTimeSinceLastWrite(filepath.c_str()))
+    {
+        LTRACE(true, "file is in the cache registry. and file size has changed. recompiling.\n");
+        Cache::UpdateMetadataCache(filepath, cacheDir.c_str());
+
+        std::string preFile = PreprocessUnit(proj, filepath, cacheDir.c_str());
+        UpdatePreprocessedCache(preFile.c_str(), cacheDir.c_str());
+
+        // recompile
         return CompileUnit(proj, mode, filepath.c_str(), cacheDir.c_str());
     }
 
@@ -479,6 +507,9 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
             LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't link files and libraries for project: ", proj.name, "\n");
             exit(1);
         }
+
+        LLOG(GREEN_TEXT("[YMAKE BUILD]: "), "successfully built project \'", proj.name, "\', binary at dir: \'",
+             proj.buildDir, "\n");
 
         exit(0);
     }

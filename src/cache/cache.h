@@ -51,6 +51,7 @@ bool HasSourceFileChanged(const char *path, const std::unordered_map<std::string
 void CreateMetadataCache(const std::vector<std::string> files, std::string projectName);
 
 std::unordered_map<std::string, FileMetadata> LoadMetadataCache(const std::string &cacheFileath);
+void UpdateMetadataCache(const std::string &file, const char *projCacheDir);
 
 // get (.c or .cpp or .cc) files recursively. (outputs absolut path.)
 std::vector<std::string> GetSrcFilesRecursive(const std::string &dirPath);

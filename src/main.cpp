@@ -2,14 +2,12 @@
 #include "cmd/cmd.h"
 
 // TODO: fix some things:
-// add things like RES_PATH from CMake (Compile Definitions) TODO: TOML PARSING STAGE.
 // .env support and replacing $(MACRO) with the value specified in .env TODO: TOML PARSING STAGE.
 // need to see if I can compile to other platforms. (x86, ARM, linux, etc..)
-// add CACHING support for selectively recompiling changed translation units.
 
 int main(int argc, char **argv)
 {
-    LOG_CHANGE_PRIORITY(LOG_NONE);
+    // LOG_CHANGE_PRIORITY(LOG_NONE);
     std::vector<std::string> args(argv, argv + argc);
 
     // clang-format off

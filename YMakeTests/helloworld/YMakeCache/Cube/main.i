@@ -67656,9 +67656,9 @@ using forward_list = std::forward_list<_ValueT, polymorphic_allocator<_ValueT>>;
 
 
 const int width = 80;
-const int height = 40;
+const int height = 33;
 
-const float cubeSize = 10.0f;
+const float cubeSize = 5.0f;
 const float distance = 2.0f;
 const float angleSpeed = 0.05f;
 

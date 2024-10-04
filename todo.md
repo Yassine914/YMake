@@ -14,9 +14,3 @@ caching system now works as intended.
 
 - [ ] add progress bar to compilation.
     along with compile time estimate and compile time at the end
-
-## FIXME
-
-- [ ] command line parsing is now broken.
-- [ ] the preprocessed_metadata.cache has entries for obj files.
-    must only have entries for intermediary files.

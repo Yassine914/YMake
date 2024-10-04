@@ -477,6 +477,50 @@ std::unordered_map<std::string, FileMetadata> LoadMetadataCache(const std::strin
     return metadataCache;
 }
 
+void UpdateMetadataCache(const std::string &file, const char *projCacheDir)
+{
+    std::string cachefilepath = std::string(projCacheDir) + "/" + YMAKE_METADATA_CACHE_FILENAME;
+    std::map<std::string, FileMetadata> cacheData;
+
+    // Load existing cache data
+    std::ifstream cachefile_in(cachefilepath);
+    if(cachefile_in.is_open())
+    {
+        std::string filepath;
+        u64 filesize;
+        std::string writeTime;
+        while(cachefile_in >> filepath >> writeTime >> filesize)
+        {
+            FileMetadata fm;
+            fm.lastWriteTime    = ToTimeT(writeTime);
+            fm.fileSize         = filesize;
+            cacheData[filepath] = fm;
+        }
+        cachefile_in.close();
+    }
+
+    // Update or add the new file data
+    FileMetadata fm;
+    fm.lastWriteTime = GetTimeSinceLastWrite(file.c_str());
+    fm.fileSize      = GetFileSize(file.c_str());
+    cacheData[file]  = fm;
+
+    // Write the updated cache data back to the file
+    std::ofstream cachefile_out(cachefilepath, std::ios::out | std::ios::trunc);
+    if(!cachefile_out.is_open())
+    {
+        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't create a cache file.\n");
+        throw Y::Error("couldn't create a metadata cache file.\n");
+    }
+
+    for(const auto &entry : cacheData)
+    {
+        cachefile_out << entry.first << " " << entry.second.lastWriteTime << " " << entry.second.fileSize << "\n";
+    }
+
+    cachefile_out.close();
+}
+
 bool HasSourceFileChanged(const char *path, std::unordered_map<std::string, FileMetadata> &metadataCache)
 {
     std::ifstream file(path);
