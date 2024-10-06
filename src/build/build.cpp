@@ -108,7 +108,7 @@ std::string CompileUnit(const Project &proj, BuildMode mode, const char *filepat
                                                 : (COMP_INCLUDE_DIR(include.c_str()));
 
     // add compiler flags from project...
-    for(auto flag : proj.flags)
+    for(auto flag : proj.flagsDebug)
         command += flag + " ";
 
     // add standard.
@@ -368,7 +368,7 @@ std::string SelectiveCompileUnit(const Project &proj, BuildMode mode, const std:
 
     for(const Lang lang : proj.langs)
     {
-        if(lang == Lang::CXX)
+        if(lang == Lang::CPP)
             compiler = WhatCompiler(proj.cppCompiler.c_str());
     }
 
@@ -398,7 +398,7 @@ void LinkAll(const Project &proj, const std::vector<std::string> &translationUni
     std::string command = "";
     for(const Lang &lang : proj.langs)
     {
-        if(lang == Lang::CXX)
+        if(lang == Lang::CPP)
         {
             compiler = WhatCompiler(proj.cppCompiler.c_str());
             command += std::string(proj.cppCompiler) + " ";

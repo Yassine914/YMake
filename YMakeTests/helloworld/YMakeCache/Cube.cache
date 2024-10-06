@@ -1,4 +1,5 @@
 Cube
+0.0.1
 0
 ./build
 14
@@ -13,9 +14,10 @@ clang++
 ./src
 0
 0
-1
-DDEBUG
-3
--Wall
--Wextra
--g
+0
+0
+0
+0
+0
+0
+0

@@ -5,6 +5,80 @@ namespace fs = std::filesystem;
 
 namespace Y::Parse {
 
+std::map<std::string, std::string> ParseDotEnv(const std::string &filename)
+{
+    std::map<std::string, std::string> envMap;
+    std::ifstream file(filename);
+    std::string line;
+
+    if(!file.is_open())
+    {
+        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't load the .env file in path: ", filename, "\n");
+        return envMap;
+    }
+
+    while(std::getline(file, line))
+    {
+        std::istringstream iss(line);
+        std::string key, value;
+
+        if(std::getline(iss, key, '=') && std::getline(iss, value))
+        {
+            envMap[key] = value;
+        }
+    }
+
+    file.close();
+    return envMap;
+}
+
+// Function to get value by key
+std::string GetEnvValue(const std::map<std::string, std::string> &envMap, const std::string &key)
+{
+    auto it = envMap.find(key);
+    if(it != envMap.end())
+    {
+        std::string value = it->second;
+        if(!value.empty() && value.front() == '"' && value.back() == '"')
+        {
+            value = value.substr(1, value.size() - 2);
+        }
+        return value;
+    }
+    return "";
+}
+
+std::string ExpandMacros(const std::string &input, const std::map<std::string, std::string> &dotenv)
+{
+    std::string result;
+    size_t pos = 0;
+    while(pos < input.size())
+    {
+        if(input[pos] == '$' && pos + 1 < input.size() && input[pos + 1] == '(')
+        {
+            size_t endPos = input.find(')', pos + 2);
+            if(endPos != std::string::npos)
+            {
+                std::string macro = input.substr(pos + 2, endPos - pos - 2);
+                std::string value = GetEnvValue(dotenv, macro);
+                result += value;
+                pos = endPos + 1;
+            }
+            else
+            {
+                result += input[pos];
+                pos++;
+            }
+        }
+        else
+        {
+            result += input[pos];
+            pos++;
+        }
+    }
+    return result;
+}
+
 std::vector<Project> GetProjects(const char *filepath)
 {
     std::vector<Project> projects;
@@ -83,409 +157,357 @@ std::optional<T> GetValueFromTOML(const toml::table &tbl, const std::string &key
 
 // clang-format on
 
-void ParseLibrary(const toml::table *lib, Project &proj)
+// helper functions
+BuildType ToBuildType(const std::string &str)
 {
-    if(!lib->is_table())
-    {
-        LLOG(RED_TEXT("[YMAKE ERROR]: "), "libraries for project: ", proj.name, " aren't setup correctly.\n");
-        throw Y::Error("problem parsing the libraries for a project");
-    }
+    if(str == "executable" || str == "exe")
+        return BuildType::EXECUTABLE;
+    if(str == "static" || str == "static" || str == "st")
+        return BuildType::STATIC_LIB;
+    if(str == "shared" || str == "dy" || str == "dynamic")
+        return BuildType::SHARED_LIB;
 
-    auto libTable = *(lib->as_table());
+    throw Y::Error("specified an unknown build type");
+}
 
-    Library library;
-    auto name = GetValueFromTOML<std::string>(libTable, "name");
-    if(name.has_value())
-        library.name = name.value();
-    else
-    {
-        LLOG(RED_TEXT("[YMAKE ERROR]: "), "didn't specify a name for a library for project: ", proj.name, "\n");
-        throw Y::Error("didn't specify a name for a library\n");
-    }
+Lang ToLang(const std::string &str)
+{
+    if(str == "C++" || str == "CPP" || str == "CC" || str == "CXX")
+        return Lang::CPP;
+    if(str == "C")
+        return Lang::C;
 
-    auto path = GetValueFromTOML<std::string>(libTable, "path");
-    if(path.has_value())
-        library.path = path.value();
-    else
-    {
-        LLOG(RED_TEXT("[YMAKE ERROR]: "), "didn't specify a path for library: ", library.name,
-             " for project: ", proj.name, "\n");
-        throw Y::Error("didn't specify a path for a library");
-    }
-
-    auto type = GetValueFromTOML<std::string>(libTable, "type");
-    if(type.has_value())
-    {
-        if(type.value() == "shared")
-            library.type = BuildType::SHARED_LIB;
-        else if(type.value() == "static")
-            library.type = BuildType::STATIC_LIB;
-        else if(type.value() == "executable")
-            library.type = BuildType::EXECUTABLE;
-        else
-        {
-            LLOG(YELLOW_TEXT("[YMAKE WARN]: "), "specified build mode for ", library.name, " for project: ", proj.name,
-                 " is not supported\n");
-            LLOG("\tsupported modes: [executable, static, shared]\n");
-            LLOG("\tusing build type \'executable\' by default.\n");
-            library.type = BuildType::EXECUTABLE;
-        }
-    }
-    else
-    {
-        LLOG(YELLOW_TEXT("[YMAKE WARN]: "), "didn't specify the build type for library: ", library.name,
-             " for project: ", proj.name, "\n");
-        LLOG("\tusing build type \'executable\' by default.\n");
-        library.type = BuildType::EXECUTABLE;
-    }
-
-    proj.libs.push_back(library);
-
-    auto includePath = GetValueFromTOML<std::string>(libTable, "include");
-    if(includePath.has_value())
-    {
-        bool found = false;
-        for(std::string dir : proj.includeDirs)
-        {
-            if(includePath.value() == dir)
-            {
-                found = true;
-                break;
-            }
-        }
-
-        if(!found)
-            proj.includeDirs.push_back(includePath.value());
-    }
-    else
-    {
-        LLOG(RED_TEXT("[YMAKE ERROR]: "), "didn't specify an include path for library: ", library.name,
-             " for project: ", proj.name, "\n");
-        throw Y::Error("didn't specify an include path for a library.\n");
-    }
+    throw Y::Error("specified an unknown (or unsupported) language.");
 }
 
 void ParseProjectData(const toml::table &config, Project &proj)
 {
-    auto table = *config[proj.name].as_table();
-
-    if(table.empty())
+    if(!config.contains(proj.name.c_str()))
     {
-        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't find project table: ", proj.name, " in the config file\n");
+        LLOG(RED_TEXT("[YMAKE TOML ERROR]: "), "couldn't find project table: ", proj.name, " in the config file\n");
         throw Y::Error("couldn't find project in the config file.");
     }
 
-    // src dir
-    auto src = GetValueFromTOML<std::string>(table, "src");
-    if(src.has_value())
+    auto mainTable = *config[proj.name].as_table();
+
+    if(auto ver = mainTable[YMAKE_TOML_PROJECT_VERSION].value<std::string>())
     {
-        proj.src = src.value();
+        proj.version = ver.value();
     }
     else
     {
-        LLOG(RED_TEXT("[YMAKE ERROR]: "), "source path wasn't specified for project: ", proj.name, "\n");
-        throw Y::Error("source path wasn't specified for a project.\n");
+        LLOG(YELLOW_TEXT("[YMAKE TOML WARN]: "), "didn't specify the version for project: ", proj.name, "\n");
+        LLOG(PURPLE_TEXT("\tusing version: 0.0.1 by default.\n"));
+        proj.version = "0.0.1";
     }
 
-    // env dir
-    auto env = GetValueFromTOML<std::string>(table, "env");
-    if(env.has_value())
-        proj.env = env.value();
-
-    // languages
-    auto langs = table["lang"];
-    // auto langs = GetArrayFromToml(config, proj.name.c_str(), "lang");
-
-    if(!langs)
+    // env
+    std::map<std::string, std::string> dotenv;
+    if(auto env = mainTable[YMAKE_TOML_ENV].value<std::string>())
     {
-        LLOG(RED_TEXT("[YMAKE ERROR]: "), "didn't specify languages used in project: ", proj.name, "\n");
-        throw Y::Error("didn't specify languages used in project.\n");
+        proj.env = env.value();
+        dotenv   = ParseDotEnv(proj.env);
     }
 
+    // NOTE: YMake MACROS
+    dotenv[YMAKE_MACRO_PROJECT_NAME] = proj.name;
+    dotenv[YMAKE_MACRO_CURRENT_DIR]  = fs::current_path().string();
+    dotenv[YMAKE_MACRO_BUILD_DIR]    = proj.buildDir;
+    dotenv[YMAKE_MACRO_SRC_DIR]      = proj.src;
+
+    if(!mainTable.contains(YMAKE_TOML_LANG))
+    {
+        LLOG(RED_TEXT("[YMAKE TOML ERROR]: "), "couldn't find the key: ", YMAKE_TOML_LANG, " in proj: ", proj.name,
+             "\n");
+        throw Y::Error("couldn't find lang key for a project in the config file.");
+    }
+
+    // langs.
+    auto langs = mainTable[YMAKE_TOML_LANG];
     if(langs.is_array())
     {
-        auto langsArr = GetArrayFromToml(config, proj.name.c_str(), "lang").value();
-        for(auto lang : langsArr)
-        {
-            bool cxx = false, c = false;
-            if(lang == "C++" || lang == "CXX" || lang == "CPP")
-            {
-                proj.langs.push_back(Lang::CXX);
-                cxx = true;
-            }
-            else if(lang == "C")
-            {
-                proj.langs.push_back(Lang::C);
-                c = true;
-            }
-            else
-            {
-                LLOG(YELLOW_TEXT("[YMAKE WARN]: "), "ignoring unsopported language: ", lang,
-                     ", from project: ", proj.name, "\n");
-            }
-
-            if(cxx)
-            {
-                auto cppTable = *table["cpp"].as_table();
-
-                // std.
-                auto cppStd = GetValueFromTOML<i64>(cppTable, "std");
-                if(!cppStd.has_value())
-                {
-                    LLOG(YELLOW_TEXT("[YMAKE WARN]: "), "didn't specify the C++ standard used in project: ", proj.name,
-                         "\n");
-                    LLOG("\tusing standard: c++14 by default.\n");
-                    proj.cppStd = 14;
-                }
-                else
-                {
-                    proj.cppStd = cppStd.value();
-                }
-
-                // compiler
-                auto cppCompiler = GetValueFromTOML<std::string>(cppTable, "compiler");
-                if(!cppCompiler.has_value())
-                {
-                    LLOG(RED_TEXT("[YMAKE ERROR]: "), "didn't specify a C++ compiler for project: ", proj.name, "\n");
-                    throw Y::Error("didn't specify a C++ compiler");
-                }
-                else
-                {
-                    proj.cppCompiler = cppCompiler.value();
-                }
-            }
-
-            if(c)
-            {
-                auto cTable = *table["c"].as_table();
-
-                // std.
-                auto cStd = GetValueFromTOML<i64>(cTable, "std");
-                if(!cStd.has_value())
-                {
-                    LLOG(YELLOW_TEXT("[YMAKE WARN]: "), "didn't specify the C standard used in project: ", proj.name,
-                         "\n");
-                    LLOG("\tusing standard: c11 by default.\n");
-                    proj.cStd = 11;
-                }
-                else
-                {
-                    proj.cStd = cStd.value();
-                }
-
-                // compiler
-                auto cCompiler = GetValueFromTOML<std::string>(cTable, "compiler");
-                if(!cCompiler.has_value())
-                {
-                    LLOG(RED_TEXT("[YMAKE ERROR]: "), "didn't specify a C compiler for project: ", proj.name, "\n");
-                    throw Y::Error("didn't specify a C compiler");
-                }
-                else
-                {
-                    proj.cCompiler = cCompiler.value();
-                }
-            }
-        }
+        for(const auto &lang : *langs.as_array())
+            proj.langs.push_back(ToLang(lang.value<std::string>().value()));
     }
     else if(langs.is_string())
     {
-        std::string lang = langs.as_string()->get();
-        bool cxx = false, c = false;
-        if(lang == "C++" || lang == "CXX" || lang == "CPP")
-        {
-            proj.langs.push_back(Lang::CXX);
-            cxx = true;
-        }
-        else if(langs == "C")
-        {
-            proj.langs.push_back(Lang::C);
-            c = true;
-        }
-        else
-        {
-            LLOG(YELLOW_TEXT("[YMAKE WARN]: "), "ignoring unsopported language: ", lang, ", from project: ", proj.name,
-                 "\n");
-        }
+        proj.langs.push_back(ToLang(langs.value<std::string>().value()));
+    }
 
-        if(cxx)
+    for(const auto &lang : proj.langs)
+    {
+        if(lang == Lang::CPP)
         {
-            auto cppTable = *table["cpp"].as_table();
-
-            // std.
-            auto cppStd = GetValueFromTOML<i64>(cppTable, "std");
-            if(!cppStd.has_value())
-            {
-                LLOG(YELLOW_TEXT("[YMAKE WARN]: "), "didn't specify the C++ standard used in project: ", proj.name,
-                     "\n");
-                LLOG("\tusing standard: c++14 by default.\n");
-                proj.cppStd = 14;
-            }
-            else
+            if(auto cppStd = mainTable[YMAKE_TOML_CPP][YMAKE_TOML_STD].value<i32>())
             {
                 proj.cppStd = cppStd.value();
             }
-
-            // compiler
-            auto cppCompiler = GetValueFromTOML<std::string>(cppTable, "compiler");
-            if(!cppCompiler.has_value())
+            else
             {
-                LLOG(RED_TEXT("[YMAKE ERROR]: "), "didn't specify a C++ compiler for project: ", proj.name, "\n");
-                throw Y::Error("didn't specify a C++ compiler");
+                LLOG(YELLOW_TEXT("[YMAKE TOML WARN]: "), "the C++ standard (cpp.std) has not been set.\n");
+                LLOG(PURPLE_TEXT("\tusing C++14 by default.\n"));
+                proj.cppStd = 14;
+            }
+
+            if(auto cppComp = mainTable[YMAKE_TOML_CPP][YMAKE_TOML_COMPILER].value<std::string>())
+            {
+                proj.cppCompiler = cppComp.value();
             }
             else
             {
-                proj.cppCompiler = cppCompiler.value();
+                LLOG(RED_TEXT("[YMAKE TOML ERROR]: "),
+                     "didn't specify the C++ compiler to use (cpp.compiler) for project: ", proj.name, "\n");
+                throw Y::Error("user didn't specify the C++ compiler in the config file.");
             }
         }
-
-        if(c)
+        else
         {
-            auto cTable = *table["c"].as_table();
-
-            // std.
-            auto cStd = GetValueFromTOML<i64>(cTable, "std");
-            if(!cStd.has_value())
-            {
-                LLOG(YELLOW_TEXT("[YMAKE WARN]: "), "didn't specify the C standard used in project: ", proj.name, "\n");
-                LLOG("\tusing standard: c11 by default.\n");
-                proj.cStd = 11;
-            }
-            else
+            if(auto cStd = mainTable[YMAKE_TOML_C][YMAKE_TOML_STD].value<i32>())
             {
                 proj.cStd = cStd.value();
             }
-
-            // compiler
-            auto cCompiler = GetValueFromTOML<std::string>(cTable, "compiler");
-            if(!cCompiler.has_value())
+            else
             {
-                LLOG(RED_TEXT("[YMAKE ERROR]: "), "didn't specify a C compiler for project: ", proj.name, "\n");
-                throw Y::Error("didn't specify a C compiler");
+                LLOG(YELLOW_TEXT("[YMAKE TOML WARN]: "), "the C standard (c.std) has not been set.\n");
+                LLOG(PURPLE_TEXT("\tusing c11 by default.\n"));
+                proj.cStd = 11;
+            }
+
+            if(auto cComp = mainTable[YMAKE_TOML_C][YMAKE_TOML_COMPILER].value<std::string>())
+            {
+                proj.cCompiler = cComp.value();
             }
             else
             {
-                proj.cCompiler = cCompiler.value();
+                LLOG(RED_TEXT("[YMAKE TOML ERROR]: "),
+                     "didn't specify the C compiler to use (c.compiler) for project: ", proj.name, "\n");
+                throw Y::Error("user didn't specify the C compiler in the config file.");
             }
         }
     }
 
     // build
-    auto buildTable = *table["build"].as_table();
-    if(!buildTable.empty())
+    if(auto buildType = mainTable[YMAKE_TOML_BUILD][YMAKE_TOML_TYPE].value<std::string>())
     {
-        auto buildType = GetValueFromTOML<std::string>(buildTable, "type");
-
-        if(buildType.has_value())
+        try
         {
-            if(buildType.value() == "executable")
-                proj.buildType = BuildType::EXECUTABLE;
-            else if(buildType.value() == "shared")
-                proj.buildType = BuildType::SHARED_LIB;
-            else if(buildType.value() == "static")
-                proj.buildType = BuildType::STATIC_LIB;
-            else
-            {
-                LLOG(YELLOW_TEXT("[YMAKE WARN]: "), "build type \'", buildType.value(), "\' for project \'", proj.name,
-                     "\' is not one of the options.\n");
-                LLOG("\tbuild type options are: executable, shared, static.\n");
-                LLOG("\tusing executable build type by default\n");
-                proj.buildType = BuildType::EXECUTABLE;
-            }
+            proj.buildType = ToBuildType(buildType.value());
         }
-        else
+        catch(Y::Error &err)
         {
-            LLOG(YELLOW_TEXT("[YMAKE ERROR]: "), "didn't specify build type for project: ", proj.name,
-                 "\n\t using executable by default.\n");
+            LLOG(RED_TEXT("[YMAKE TOML ERROR]: "), "build type specified for project \'", proj.name,
+                 "\' is not supported.\n");
+            LLOG(PURPLE_TEXT("\tavailable types: "), "executable, shared, static");
+            LLOG(PURPLE_TEXT("\tusing executable by default\n"));
             proj.buildType = BuildType::EXECUTABLE;
-        }
-
-        auto buildDir = GetValueFromTOML<std::string>(buildTable, "dir");
-
-        if(buildDir.has_value())
-        {
-            proj.buildDir = buildDir.value();
-        }
-        else
-        {
-            LLOG(YELLOW_TEXT("[YMAKE WARN]: "), "didn't specify build directory for project: ", proj.name,
-                 "\n\tusing \'./bin/\' by default.\n");
-            proj.buildDir = "./bin/";
         }
     }
     else
     {
-        LLOG(YELLOW_TEXT("[YMAKE WARN]: "), "didn't specify build directory or type for project: ", proj.name,
-             "\n\tusing \'./bin/\' as directory, and \'executable\' as type by default.\n");
-        proj.buildDir  = "./bin/";
+        LLOG(YELLOW_TEXT("[YMAKE TOML WARN]: "), "didn't specify the build type (build.type) for project \'", proj.name,
+             "\'\n");
+        LLOG(PURPLE_TEXT("\tusing executable by default."));
         proj.buildType = BuildType::EXECUTABLE;
     }
 
-    // include paths.
-    auto includes = GetArrayFromToml(config, proj.name.c_str(), "includes");
-
-    if(!includes.has_value())
+    if(auto buildDir = mainTable[YMAKE_TOML_BUILD][YMAKE_TOML_DIR].value<std::string>())
     {
-        LLOG(YELLOW_TEXT("[YMAKE WARN]: "), "didn't specify any includes for project: ", proj.name, "\n\t using \'",
-             proj.src, "\' by default.\n");
-        proj.includeDirs.push_back(proj.src);
+        proj.buildDir = ExpandMacros(buildDir.value(), dotenv);
     }
     else
     {
-        for(std::string inc : includes.value())
+        LLOG(YELLOW_TEXT("[YMAKE TOML WARN]: "), "didn't specify the build dir (build.dir) for project \'", proj.name,
+             "\'\n");
+        LLOG(PURPLE_TEXT("\tusing build directory: ", "\"./build/\" by default"));
+        proj.buildDir = "./build";
+    }
+
+    // src
+    if(auto src = mainTable[YMAKE_TOML_SRC].value<std::string>())
+    {
+        proj.src = ExpandMacros(src.value(), dotenv);
+    }
+    else
+    {
+        LLOG(RED_TEXT("[YMAKE TOML ERROR]: "), "didn't specify the source directory for project \'", proj.name, "\'\n");
+        throw Y::Error("didn't specify the src for a project in the config file.");
+    }
+
+    // includes
+    if(auto includes = mainTable[YMAKE_TOML_INCLUDES].as_array())
+    {
+        for(const auto &incl : *includes)
         {
-            proj.includeDirs.push_back(inc);
+            std::string include = incl.value<std::string>().value();
+            include             = ExpandMacros(include, dotenv);
+            proj.includeDirs.push_back(include);
+        }
+    }
+    else
+    {
+        LLOG(YELLOW_TEXT("[YMAKE TOML WARN]: "), "didn't specify any includes for project \'", proj.name, "\'\n");
+        LLOG(PURPLE_TEXT("\tadding include path \"", proj.src, "\" by default.\n"));
+        proj.includeDirs.push_back(ExpandMacros(proj.src, dotenv));
+    }
+
+    // libs.src
+    if(auto libsSrc = mainTable[YMAKE_TOML_LIBS][YMAKE_TOML_SRC].as_array())
+    {
+        for(auto const &libTable : *libsSrc)
+        {
+            auto lib = *libTable.as_table();
+
+            Library library;
+            if(auto libName = lib[YMAKE_TOML_LIB_NAME].value<std::string>())
+            {
+                library.name = libName.value();
+            }
+            else
+            {
+                LLOG(RED_TEXT("[YMAKE ERROR]: "), "didn't specify a name for a library for project: ", proj.name, "\n");
+                throw Y::Error("problem parsing the libraries for a project");
+            }
+
+            if(auto libPath = lib[YMAKE_TOML_LIB_PATH].value<std::string>())
+            {
+                library.path = ExpandMacros(libPath.value(), dotenv);
+            }
+            else
+            {
+                LLOG(RED_TEXT("[YMAKE TOML ERROR]: "), "didn't specify a path for library: ", library.name,
+                     " for project: ", proj.name, "\n");
+                throw Y::Error("didn't specify a path for a library");
+            }
+
+            if(auto libInclPath = lib[YMAKE_TOML_LIB_INCLUDE].value<std::string>())
+            {
+                bool found = false;
+                for(std::string dir : proj.includeDirs)
+                {
+                    if(libInclPath.value() == dir)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if(!found)
+                    proj.includeDirs.push_back(ExpandMacros(libInclPath.value(), dotenv));
+            }
+            else
+            {
+                LLOG(RED_TEXT("[YMAKE TOML ERROR]: "), "didn't specify an include path for library: ", library.name,
+                     " for project: ", proj.name, "\n");
+                throw Y::Error("didn't specify an include path for a library.\n");
+            }
+
+            if(auto libType = lib[YMAKE_TOML_LIB_TYPE].value<std::string>())
+            {
+                library.type = ToBuildType(libType.value());
+            }
+            else
+            {
+                LLOG(YELLOW_TEXT("[YMAKE TOML WARN]: "), "didn't specify the build type for library: ", library.name,
+                     " for project: ", proj.name, "\n");
+                LLOG("\tusing build type \'static\' by default.\n");
+                library.type = BuildType::STATIC_LIB;
+            }
+
+            proj.libs.push_back(library);
         }
     }
 
-    // libraries
-    if(auto libsArray = table["libs"].as_array())
+    // libs.built (preBuiltLibs)
+    if(auto libsBuilt = mainTable[YMAKE_TOML_LIBS][YMAKE_TOML_BUILT].as_array())
     {
-        auto libs = *libsArray;
-
-        if(!libs.empty())
+        for(const auto &lib : *libsBuilt)
         {
-            for(const auto &lib : libs)
-            {
-                ParseLibrary(lib.as_table(), proj);
-            }
+            std::string libPath = lib.value<std::string>().value();
+            libPath             = ExpandMacros(libPath, dotenv);
+
+            proj.preBuiltLibs.push_back(libPath);
         }
     }
 
-    // ________ compiler specific _________
-
-    // defines
-    if(auto compilerTableConf = table["compiler"].as_table())
+    // libs.sys (sysLibs)
+    if(auto libsSys = mainTable[YMAKE_TOML_LIBS][YMAKE_TOML_SYS].as_array())
     {
-        auto compilerTable = *compilerTableConf;
-
-        if(!compilerTable.empty())
+        for(const auto &lib : *libsSys)
         {
-            auto definesRelease = GetArrayFromToml(compilerTable, "defines", "release");
-            if(definesRelease.has_value())
-            {
-                for(std::string define : definesRelease.value())
-                {
-                    proj.definesRelease.push_back(define);
-                }
-            }
+            std::string libPath = lib.value<std::string>().value();
+            libPath             = ExpandMacros(libPath, dotenv);
 
-            auto definesDebug = GetArrayFromToml(compilerTable, "defines", "debug");
-            if(definesDebug.has_value())
-            {
-                for(std::string define : definesDebug.value())
-                {
-                    proj.definesDebug.push_back(define);
-                }
-            }
+            proj.sysLibs.push_back(libPath);
+        }
+    }
 
-            auto flags = GetArrayFromToml(table, "compiler", "flags");
-            if(flags.has_value())
-            {
-                for(std::string flag : flags.value())
-                {
-                    proj.flags.push_back(flag);
-                }
-            }
+    // compiler.
+
+    // debug optimization.
+    if(auto opt = mainTable[YMAKE_TOML_COMPILER][YMAKE_TOML_DEBUG][YMAKE_TOML_OPTIMIZATION].value<i32>())
+    {
+        proj.optimizationDebug = opt.value();
+    }
+    else
+    {
+        proj.optimizationDebug = 0;
+    }
+
+    // release optimization.
+    if(auto opt = mainTable[YMAKE_TOML_COMPILER][YMAKE_TOML_RELEASE][YMAKE_TOML_OPTIMIZATION].value<i32>())
+    {
+        proj.optimizationRelease = opt.value();
+    }
+    else
+    {
+        proj.optimizationRelease = 3;
+    }
+
+    // debug defines.
+    if(auto defines = mainTable[YMAKE_TOML_COMPILER][YMAKE_TOML_DEBUG][YMAKE_TOML_DEFINES].as_array())
+    {
+        for(const auto &define : *defines)
+        {
+            std::string def = define.value<std::string>().value();
+            def             = ExpandMacros(def, dotenv);
+
+            proj.definesDebug.push_back(def);
+        }
+    }
+
+    // release defines.
+    if(auto defines = mainTable[YMAKE_TOML_COMPILER][YMAKE_TOML_RELEASE][YMAKE_TOML_DEFINES].as_array())
+    {
+        for(const auto &define : *defines)
+        {
+            std::string def = define.value<std::string>().value();
+            def             = ExpandMacros(def, dotenv);
+
+            proj.definesRelease.push_back(def);
+        }
+    }
+
+    // debug flags
+    if(auto flags = mainTable[YMAKE_TOML_COMPILER][YMAKE_TOML_DEBUG][YMAKE_TOML_FLAGS].as_array())
+    {
+        for(const auto &flag : *flags)
+        {
+            std::string fl = flag.value<std::string>().value();
+            fl             = ExpandMacros(fl, dotenv);
+
+            proj.flagsDebug.push_back(fl);
+        }
+    }
+
+    // release flags
+    if(auto flags = mainTable[YMAKE_TOML_COMPILER][YMAKE_TOML_RELEASE][YMAKE_TOML_FLAGS].as_array())
+    {
+        for(const auto &flag : *flags)
+        {
+            std::string fl = flag.value<std::string>().value();
+            fl             = ExpandMacros(fl, dotenv);
+
+            proj.flagsRelease.push_back(fl);
         }
     }
 }

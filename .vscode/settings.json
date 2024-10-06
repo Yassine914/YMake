@@ -6,12 +6,22 @@
         "**/CVS": true,
         "**/.DS_Store": true,
         "**/Thumbs.db": true,
+        ".vscode": true,
         "lib/tomlplusplus": true,
-        ".vscode": true
+        "lib": true,
+        "LICENSE": true,
+        "build.bat": true,
+        ".clang-format": true,
+        "README.md": true
     },
     "hide-files.files": [
+        ".vscode",
         "lib/tomlplusplus",
-        ".vscode"
+        "lib",
+        "LICENSE",
+        "build.bat",
+        ".clang-format",
+        "README.md"
     ],
     "C_Cpp.intelliSenseEngineFallback": "disabled",
     "C_Cpp.errorSquiggles": "disabled",
