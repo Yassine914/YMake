@@ -382,11 +382,85 @@ std::string SelectiveCompileUnit(const Project &proj, BuildMode mode, const std:
     return outputPath.string();
 }
 
-// compiles and links lib -> returns path to built lib file
+std::string GetLibPath(const std::string &fullpath)
+{
+    fs::path p(fullpath);
+    return p.parent_path().string();
+}
+
+std::string GetLibName(const std::string &fullpath)
+{
+    fs::path p(fullpath);
+    return p.stem().string();
+}
+
+// compiles and links lib -> returns path to built lib file (.so, .dll, .dylib, .a, etc...)
 Library BuildLibrary(const Project &proj, const Library &lib, const char *buildDir)
 {
     // TODO: compile and build (all in one step..) [or MAYBE: add multithreading...] (later...)
-    return lib;
+
+#if defined(IPLATFORM_WINDOWS)
+    std::string libDynamicExt = ".dll";
+#elif defined(IPLATFORM_MACOS)
+    std::string libDynamicExt = ".dylib";
+#elif defined(IPLATFORM_LINUX) || defined(IPLATFORM_FREEBSD)
+    std::string libDynamicExt = ".so";
+#elif defined(IPLATFORM_UNIX) || defined(IPLATFORM_POSIX)
+    std::string libDynamicExt = ".so";
+#else
+    #error "Unsupported platform"
+#endif
+
+#if defined(IPLATFORM_WINDOWS)
+    std::string libStaticExt = ".lib";
+#elif defined(IPLATFORM_LINUX) || defined(IPLATFORM_FREEBSD) || defined(IPLATFORM_MACOS)
+    std::string libStaticExt = ".a";
+#elif defined(IPLATFORM_UNIX) || defined(IPLATFORM_POSIX)
+    std::string libStaticExt = ".a";
+#else
+    #error "Unsupported platform"
+#endif
+
+    // should out:
+    // - libname.dll (or .so, .dylib)
+    // - libname.lib (or .a)
+
+    Library compiled;
+    compiled.name = GetLibName(lib.path);
+    compiled.path = GetLibPath(lib.path);
+    compiled.type = lib.type;
+
+    if(compiled.type == BuildType::EXECUTABLE)
+    {
+        throw Y::Error("can't build an executable as a library.");
+    }
+
+    // compile
+    Compiler compiler   = Compiler::NONE;
+    std::string command = "";
+    for(const Lang &lang : proj.langs)
+    {
+        if(lang == Lang::CPP)
+        {
+            compiler = WhatCompiler(proj.cppCompiler.c_str());
+            command += std::string(proj.cppCompiler) + " ";
+        }
+    }
+
+    if(compiler == Compiler::NONE)
+    {
+        compiler = WhatCompiler(proj.cCompiler.c_str());
+        command += std::string(proj.cCompiler) + " ";
+    }
+
+    // create path for temp files.
+    std::string cacheDir = std::string(YMAKE_CACHE_DIR) + "/" + proj.name;
+    std::string tempDir  = Cache::ConcatenatePath(cacheDir, compiled.name);
+
+    // add -c flag.
+    command += (compiler == Compiler::MSVC) ? COMP_MSVC_COMPILE_ONLY : COMP_COMPILE_ONLY;
+
+    return compiled;
 }
 
 void LinkAll(const Project &proj, const std::vector<std::string> &translationUnits,
@@ -422,6 +496,9 @@ void LinkAll(const Project &proj, const std::vector<std::string> &translationUni
             (compiler == Compiler::MSVC) ? COMP_MSVC_LIBRARY_DIR(proj.buildDir) : COMP_LIBRARY_DIR(proj.buildDir);
         command += (compiler == Compiler::MSVC) ? COMP_MSVC_LINK_LIBRARY(lib.name) : COMP_LINK_LIBRARY(lib.name);
     }
+
+    // TODO: add system libs and prebuilt libs.
+    // also the compiled libs.
 
     // output.
     std::string outname = proj.buildDir + "/" + proj.name;
@@ -460,13 +537,9 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
         std::vector<Library> compiledLibs;
         for(auto lib : proj.libs)
         {
-            // get src files.
-            // std::vector<std::string> libFiles = Cache::GetSrcFilesRecursive(lib.path);
-
             Library compiledLib = BuildLibrary(proj, lib, proj.buildDir.c_str());
-            // the compiler only needs a path to the lib (great!)
+
             compiledLibs.push_back(compiledLib);
-            // compile source files
         }
 
         Cache::CreateDir(projectCacheDir.c_str());

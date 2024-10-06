@@ -180,12 +180,19 @@ ST_ASSERT(sizeof(f64) == 8, "expected f64 to be 8 bytes.");
 // windows
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)
     #define IPLATFORM_WINDOWS 1
-    #ifndef _WIN64
-        #error "64-bit is required on windows."
-    #endif
+    // #ifndef _WIN64
+    //     #error "64-bit is required on windows."
+    // #endif
+// macOS
+#elif defined(__APPLE__) && defined(__MACH__)
+    #define IPLATFORM_MACOS 1
 // linux
 #elif defined(__linux__) || defined(__gnu_linux__)
     #define IPLATFORM_LINUX 1
+// FreeBSD
+#elif defined(__FreeBSD__)
+    #define IPLATFORM_FREEBSD 1
+// unix
 #elif defined(__unix__)
     #define IPLATFORM_UNIX 1
 #elif defined(__POSIX__)
