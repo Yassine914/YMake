@@ -10,14 +10,16 @@
         "lib": true,
         "LICENSE": true,
         ".clang-format": true,
-        "README.md": true
+        "README.md": true,
+        ".vscode": true
     },
     "hide-files.files": [
         "lib/tomlplusplus",
         "lib",
         "LICENSE",
         ".clang-format",
-        "README.md"
+        "README.md",
+        ".vscode"
     ],
     "C_Cpp.intelliSenseEngineFallback": "disabled",
     "C_Cpp.errorSquiggles": "disabled",

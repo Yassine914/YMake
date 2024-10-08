@@ -2,8 +2,9 @@
 #include "cmd/cmd.h"
 
 // TODO: fix some things:
-// .env support and replacing $(MACRO) with the value specified in .env TODO: TOML PARSING STAGE.
 // need to see if I can compile to other platforms. (x86, ARM, linux, etc..)
+
+// need to compile and run successfuly using a compiler other than clang...
 
 int main(int argc, char **argv)
 {
