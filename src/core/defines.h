@@ -1,8 +1,6 @@
 #ifndef DEFINES_H
 #define DEFINES_H
 
-#include <corecrt.h>
-
 // project specific
 #define YMAKE_VERSION_MAJOR 0
 #define YMAKE_VERSION_MINOR 1
@@ -139,6 +137,7 @@ typedef unsigned short u16;
 typedef unsigned int u32;
 typedef unsigned long long u64;
 
+#include <stddef.h>
 typedef size_t usize;
 
 // signed int types
@@ -155,11 +154,7 @@ typedef double f64;
 #define BIT(x) (1 << x)
 
 // define static assertions
-#if defined(__clang__) || defined(__gcc__) || defined(__GNUC__)
-    #define ST_ASSERT _Static_assert
-#else
-    #define ST_ASSERT static_assert
-#endif
+#define ST_ASSERT static_assert
 
 // static assertions for type sizes
 ST_ASSERT(sizeof(u8) == 1, "expected u8 to be 1 byte.");
@@ -175,14 +170,13 @@ ST_ASSERT(sizeof(i64) == 8, "expected i64 to be 8 bytes.");
 ST_ASSERT(sizeof(f32) == 4, "expected f32 to be 4 bytes.");
 ST_ASSERT(sizeof(f64) == 8, "expected f64 to be 8 bytes.");
 
+static_assert(sizeof(usize) == sizeof(void *), "usize size mismatch.");
+
 // platform detection
 
 // windows
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)
     #define IPLATFORM_WINDOWS 1
-    // #ifndef _WIN64
-    //     #error "64-bit is required on windows."
-    // #endif
 // macOS
 #elif defined(__APPLE__) && defined(__MACH__)
     #define IPLATFORM_MACOS 1

@@ -2,6 +2,7 @@
 SetLocal EnableDelayedExpansion
 
 set outputAssembly=ymake
+set compiler=clang++
 
 echo ------------------------------
 echo C++ build script for %outputAssembly%
@@ -80,11 +81,11 @@ popd
 
 echo compiling source code...
 
-set compilerFlags=-g -Wvarargs -Wall -Werror
+set compilerFlags=-g -Wvarargs -Wall -Werror -std=c++17
 set includeFlags=-I./lib/tomlplusplus/include/
 rem -I./thirdparty/include/
 
-clang++ %cppFiles% %compilerFlags% %includeFlags% %defines% -o bin/%outputAssembly%
+%compiler% %cppFiles% %compilerFlags% %includeFlags% %defines% -o bin/%outputAssembly%
 
 echo linking...
 

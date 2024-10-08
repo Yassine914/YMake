@@ -6,6 +6,8 @@
 
 #include "../toml/parser.h"
 
+#include <unordered_map>
+
 namespace Y::Cache {
 
 // PROJECT METADATA

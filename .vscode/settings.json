@@ -6,20 +6,16 @@
         "**/CVS": true,
         "**/.DS_Store": true,
         "**/Thumbs.db": true,
-        ".vscode": true,
         "lib/tomlplusplus": true,
         "lib": true,
         "LICENSE": true,
-        "build.bat": true,
         ".clang-format": true,
         "README.md": true
     },
     "hide-files.files": [
-        ".vscode",
         "lib/tomlplusplus",
         "lib",
         "LICENSE",
-        "build.bat",
         ".clang-format",
         "README.md"
     ],
@@ -120,7 +116,14 @@
         "unordered_set": "cpp",
         "filesystem": "cpp",
         "functional": "cpp",
-        "xhash": "cpp"
+        "xhash": "cpp",
+        "condition_variable": "cpp",
+        "coroutine": "cpp",
+        "resumable": "cpp",
+        "numeric": "cpp",
+        "random": "cpp",
+        "ranges": "cpp",
+        "span": "cpp"
     },
     "C_Cpp.default.compilerPath": "C:\\ProgramData\\mingw64\\mingw64\\bin\\g++.exe",
 }

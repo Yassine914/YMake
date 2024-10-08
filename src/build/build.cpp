@@ -7,9 +7,10 @@ namespace Y::Build {
 
 std::string ToLower(const std::string &str)
 {
-    std::string lower_str = str;
-    std::transform(lower_str.begin(), lower_str.end(), lower_str.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
+    std::string lower_str = "";
+    for(auto const &ch : str)
+        lower_str += std::tolower(ch);
+
     return lower_str;
 }
 
@@ -426,7 +427,7 @@ Library BuildLibrary(const Project &proj, const Library &lib, const char *buildD
     // - libname.lib (or .a)
 
     Library compiled;
-    compiled.name = GetLibName(lib.path);
+    compiled.name = lib.name;
     compiled.path = GetLibPath(lib.path);
     compiled.type = lib.type;
 
@@ -459,6 +460,10 @@ Library BuildLibrary(const Project &proj, const Library &lib, const char *buildD
 
     // add -c flag.
     command += (compiler == Compiler::MSVC) ? COMP_MSVC_COMPILE_ONLY : COMP_COMPILE_ONLY;
+
+    // TODO: concurrent compilation.
+
+    // TODO: link all to a bin file (.so, .dll, .dylib, .a)
 
     return compiled;
 }

@@ -6,6 +6,7 @@
 #include <fstream>
 #include <string>
 #include <sstream>
+#include <iomanip>
 
 #include <mutex>
 #define LOCK_MUTEX(x) std::lock_guard<std::mutex> lock(x)
@@ -64,7 +65,7 @@ using std::chrono::system_clock;
     LogInfo info;                                                                                                      \
     info.level      = (LogLevel)x;                                                                                     \
     info.filename   = y;                                                                                               \
-    info.linenumber = _LIBCPP_TOSTRING2(z);
+    info.linenumber = #z;
 
 #define LOG_CHANGE_PRIORITY(x) Logger::priority = (LogLevel)x;
 
