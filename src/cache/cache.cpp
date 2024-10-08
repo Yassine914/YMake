@@ -67,7 +67,8 @@ std::time_t ToTimeT(const std::string &time)
 // Converts std::time_t to a string timestamp
 std::string ToString(std::time_t time)
 {
-    std::tm tm = *std::localtime(&time); // Use localtime for local time
+    std::tm tm;
+    localtime_s(&tm, &time); // Use localtime_s for local time
     std::ostringstream oss;
     oss << std::put_time(&tm, "%Y-%m-%d:%H-%M-%S");
     return oss.str();

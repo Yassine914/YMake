@@ -276,8 +276,11 @@ class Logger
         auto now    = system_clock::now();
         auto inTime = system_clock::to_time_t(now);
 
+        std::tm buf;
+        localtime_s(&buf, &inTime);
+
         std::stringstream ss;
-        ss << std::put_time(std::localtime(&inTime), "%X");
+        ss << std::put_time(&buf, "%X");
         return ss.str();
     }
 
