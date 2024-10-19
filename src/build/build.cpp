@@ -40,10 +40,11 @@ FileType GetFileType(const char *filepath)
     if(extension == ".c")
         return FileType::C;
 
-    if(extension == ".cpp" || extension == ".cxx" || extension == ".cc")
+    if(extension == ".cpp" || extension == ".cxx" || extension == ".cc" || extension == ".c++" || extension == ".cp" ||
+       extension == ".cxx" || extension == ".tpp")
         return FileType::CPP;
 
-    if(extension == ".h" || extension == ".hpp" || extension == ".hxx")
+    if(extension == ".h" || extension == ".hpp" || extension == ".hxx" || extension == ".h++" || extension == ".hh")
         return FileType::HEADER;
 
     if(extension == ".o" || extension == ".obj")
@@ -409,7 +410,8 @@ Library BuildLibrary(const Project &proj, const Library &lib, const char *buildD
 #elif defined(IPLATFORM_UNIX) || defined(IPLATFORM_POSIX)
     std::string libDynamicExt = ".so";
 #else
-    #error "Unsupported platform"
+    LLOG(RED_TEXT("[YMAKE ERROR]: "), "unsupported platform.\n");
+    #error "[YMAKE ERROR]: unsupported platform"
 #endif
 
 #if defined(IPLATFORM_WINDOWS)
@@ -419,7 +421,8 @@ Library BuildLibrary(const Project &proj, const Library &lib, const char *buildD
 #elif defined(IPLATFORM_UNIX) || defined(IPLATFORM_POSIX)
     std::string libStaticExt = ".a";
 #else
-    #error "Unsupported platform"
+    LLOG(RED_TEXT("[YMAKE ERROR]: "), "unsupported platform.\n");
+    #error "[YMAKE ERROR]: unsupported platform"
 #endif
 
     // should out:
@@ -458,12 +461,48 @@ Library BuildLibrary(const Project &proj, const Library &lib, const char *buildD
     std::string cacheDir = std::string(YMAKE_CACHE_DIR) + "/" + proj.name;
     std::string tempDir  = Cache::ConcatenatePath(cacheDir, compiled.name);
 
-    // add -c flag.
-    command += (compiler == Compiler::MSVC) ? COMP_MSVC_COMPILE_ONLY : COMP_COMPILE_ONLY;
+    // add -c flag. NOTE: will try compiling and linking in one step...
+    // command += (compiler == Compiler::MSVC) ? COMP_MSVC_COMPILE_ONLY : COMP_COMPILE_ONLY;
 
-    // TODO: concurrent compilation.
+    // adding libs.
+    for(const auto &lib : proj.sysLibs)
+    {
+        command += (compiler == Compiler::MSVC) ? COMP_MSVC_LINK_LIBRARY(lib) : COMP_LINK_LIBRARY(lib);
+    }
+
+    // adding files.
+    auto files = Cache::GetSrcFilesRecursive(lib.path);
+    for(const auto &file : files)
+    {
+        command += file + " ";
+    }
+
+    if(lib.type == BuildType::SHARED_LIB)
+    {
+        // output.
+        std::string outname = std::string(buildDir) + "/" + compiled.name + libDynamicExt;
+        command += (compiler == Compiler::MSVC) ? COMP_MSVC_OUTPUT_FILE(outname) : COMP_OUTPUT_FILE(outname);
+    }
+    else if(lib.type == BuildType::STATIC_LIB)
+    {
+        // output.
+        std::string outname = std::string(buildDir) + "/" + compiled.name + libStaticExt;
+        command += (compiler == Compiler::MSVC) ? COMP_MSVC_OUTPUT_FILE(outname) : COMP_OUTPUT_FILE(outname);
+    }
 
     // TODO: link all to a bin file (.so, .dll, .dylib, .a)
+    if(lib.type == BuildType::SHARED_LIB)
+    {
+        command += (compiler == Compiler::MSVC) ? COMP_MSVC_BUILD_SHARED_LIBRARY : COMP_BUILD_SHARED_LIBRARY;
+    }
+    else if(lib.type == BuildType::STATIC_LIB)
+    {
+        command += (compiler == Compiler::MSVC) ? COMP_MSVC_BUILD_STATIC_LIBRARY : COMP_BUILD_STATIC_LIBRARY;
+    }
+
+    i32 result = std::system(command.c_str());
+    LASSERT(result == 0, RED_TEXT("[YMAKE COMPILE ERROR]: "), "failed to compile library: ", compiled.name, "\n\t",
+            "exit code: ", result, "\n");
 
     return compiled;
 }
@@ -490,6 +529,17 @@ void LinkAll(const Project &proj, const std::vector<std::string> &translationUni
         command += std::string(proj.cCompiler) + " ";
     }
 
+    // FIXME: building a library requires an extra step
+    //        requires using a tool like ar to build a static lib
+    if(proj.buildType == BuildType::SHARED_LIB)
+    {
+        command += (compiler == Compiler::MSVC) ? COMP_MSVC_BUILD_SHARED_LIBRARY : COMP_BUILD_SHARED_LIBRARY;
+    }
+    else if(proj.buildType == BuildType::STATIC_LIB)
+    {
+        command += (compiler == Compiler::MSVC) ? COMP_MSVC_BUILD_STATIC_LIBRARY : COMP_BUILD_STATIC_LIBRARY;
+    }
+
     // command like: clang++ main.o something.o -o project.exe -L./libpath -llibname
     for(const auto &file : translationUnits)
         command += file + " ";
@@ -502,11 +552,37 @@ void LinkAll(const Project &proj, const std::vector<std::string> &translationUni
         command += (compiler == Compiler::MSVC) ? COMP_MSVC_LINK_LIBRARY(lib.name) : COMP_LINK_LIBRARY(lib.name);
     }
 
-    // TODO: add system libs and prebuilt libs.
-    // also the compiled libs.
+    for(const auto &sysLib : proj.sysLibs)
+    {
+        command += (compiler == Compiler::MSVC) ? COMP_MSVC_LIBRARY_DIR(GetLibPath(sysLib))
+                                                : COMP_LIBRARY_DIR(GetLibPath(sysLib));
+
+        command += (compiler == Compiler::MSVC) ? COMP_MSVC_LINK_LIBRARY(GetLibName(sysLib))
+                                                : COMP_LINK_LIBRARY(GetLibName(sysLib));
+    }
+
+    for(const auto &prebuiltLib : proj.preBuiltLibs)
+    {
+        command += (compiler == Compiler::MSVC) ? COMP_MSVC_LIBRARY_DIR(GetLibPath(prebuiltLib))
+                                                : COMP_LIBRARY_DIR(GetLibPath(prebuiltLib));
+
+        command += (compiler == Compiler::MSVC) ? COMP_MSVC_LINK_LIBRARY(GetLibName(prebuiltLib))
+                                                : COMP_LINK_LIBRARY(GetLibName(prebuiltLib));
+    }
 
     // output.
     std::string outname = proj.buildDir + "/" + proj.name;
+
+    // NOTE: temporary fix for windows.
+#if defined(IPLATFORM_WINDOWS)
+    if(proj.buildType == BuildType::EXECUTABLE)
+        outname += ".exe";
+    else if(proj.buildType == BuildType::SHARED_LIB)
+        outname += ".dll";
+    else if(proj.buildType == BuildType::STATIC_LIB)
+        outname += ".lib";
+#endif
+
     command += (compiler == Compiler::MSVC) ? COMP_MSVC_OUTPUT_FILE(outname) : COMP_OUTPUT_FILE(outname);
 
     i32 result = std::system(command.c_str());
@@ -521,6 +597,8 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
     // TODO: add multithreading and start a timer to see how long it takes to compile.
     // maybe give a percentage based on the no. of files [ % per file = (no. files) / 100% ]
 
+    // TODO: add styling to the command output. (output build mode and files to compile etc...)
+
     LTRACE(true, "building project: ", proj.name, "...\n");
     std::string projectCacheDir = std::string(YMAKE_CACHE_DIR) + "/" + proj.name;
 
@@ -530,7 +608,7 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
 
     // if clean build (or no cache exists) -> recompile everything (including libs)
     // recreate the cache.
-    if(cleanBuild || !Cache::DirExists(projectCacheDir.c_str()))
+    if(cleanBuild || !Cache::DirExists(projectCacheDir.c_str()) || mode == BuildMode::RELEASE)
     {
         LTRACE(true, "cache doesn't exist. performing a clean build.\n");
 

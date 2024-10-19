@@ -1,0 +1,46 @@
+# PROJECT: libtest
+
+[libtest]
+lang = "C++"
+
+cpp.std = 14
+cpp.compiler = "clang++"
+
+build.type = "executable"
+build.dir = "./bin"
+
+src = "./src"
+
+includes = [
+    "./src",
+    "./include",
+]
+
+libs.src = [
+    {name = "DEngine", path = "./libs/DEngine/src", include = "./libs/DEngine/include", type = "static"}
+]
+
+libs.sys = [
+    "opengl32",
+    "gdi32",
+    "winmm",
+]
+
+[libtest.compiler]
+
+debug.optimization = 0
+debug.defines = [
+    "DDEBUG",
+    "DTEST=1"
+]
+
+debug.flags = [
+    "-Wall",
+    "-Wextra",
+    "-g"
+]
+
+release.optimization = 3
+release.defines = [
+    "DNDEBUG",
+]

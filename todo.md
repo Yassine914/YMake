@@ -4,15 +4,8 @@
 
 ## TODO
 
-- [x] improve parsing.
-    - add support for macros defined by me (like `CMAKE_DIR` etc)
-    - libraries to either be built or linked from binary
-    - compiler optimizations specified by the user.
-
-- [ ] build libraries.
-    - two approaches:
-        - add a `ymake.toml` file per library and recursively build.
-        - include all the project info in the same `YMake.toml` file.
+### MAIN TODO: redo the entire build.cpp file. (approach right now is slightly rough)
+- FIXME: current system crashes when trying to build libraries.
 
 - [ ] add multithreading.
     - MT should be added to compiling source files.
@@ -21,8 +14,6 @@
 - [ ] add progress bar to compilation.
     - along with compile time estimate and compile time at the end
     - check all source files to be compiled. [% per file = 100 / fileno].
-
-- [ ] check out `Bake`. also a build system for C/C++
 
 ### THINGS TO THINK ABOUT:
 
