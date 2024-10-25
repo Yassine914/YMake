@@ -82,14 +82,10 @@
 #define COMP_BUILD_STATIC_LIBRARY      "-static "
 #define COMP_MSVC_BUILD_STATIC_LIBRARY "/LIB "
 
-#define COMP_OPTIMIZATION_LEVEL_0      "-O0 "
-#define COMP_OPTIMIZATION_LEVEL_1      "-O1 "
-#define COMP_OPTIMIZATION_LEVEL_2      "-O2 "
-#define COMP_OPTIMIZATION_LEVEL_3      "-O3 "
-#define COMP_MSVC_OPTIMIZATION_LEVEL_0 "/Od "
-#define COMP_MSVC_OPTIMIZATION_LEVEL_1 "/O1 "
-#define COMP_MSVC_OPTIMIZATION_LEVEL_2 "/O2 "
-#define COMP_MSVC_OPTIMIZATION_LEVEL_3 "/Ox "
+#define COMP_OPTIMIZATION_LEVEL(x) std::string("-O") + std::to_string(x) + " "
+
+#define COMP_MSVC_OPTIMIZATION_LEVEL(x)                                                                                \
+    ((x) == 0 ? "/Od " : (x) == 1 ? "/O1 " : (x) == 2 ? "/O2 " : (x) == 3 ? "/Ox " : "")
 
 #define COMP_DEBUG_INFORMATION      "-g "
 #define COMP_MSVC_DEBUG_INFORMATION "/Zi "
@@ -97,12 +93,14 @@
 #define COMP_DEFINE_MACRO(x)      std::string("-D") + x + " "
 #define COMP_MSVC_DEFINE_MACRO(x) std::string("/D") + x + " "
 
-#define COMP_WARNING_LEVEL_ALL    "-Wall "
-#define COMP_WARNING_LEVEL_EXTRA  "-Wextra "
-#define COMP_MSVC_WARNING_LEVEL_1 "/W1 "
-#define COMP_MSVC_WARNING_LEVEL_2 "/W2 "
-#define COMP_MSVC_WARNING_LEVEL_3 "/W3 "
-#define COMP_MSVC_WARNING_LEVEL_4 "/W4 "
+#define COMP_WARNING_LEVEL_ALL   "-Wall "
+#define COMP_WARNING_LEVEL_EXTRA "-Wextra "
+
+#define COMP_MSVC_WARNING_LEVEL(x) std::string("/W") + std::to_string(x) + " "
+// #define COMP_MSVC_WARNING_LEVEL_1  "/W1 "
+// #define COMP_MSVC_WARNING_LEVEL_2  "/W2 "
+// #define COMP_MSVC_WARNING_LEVEL_3  "/W3 "
+// #define COMP_MSVC_WARNING_LEVEL_4  "/W4 "
 
 #define COMP_SUPPRESS_WARNINGS      "-w "
 #define COMP_MSVC_SUPPRESS_WARNINGS "/w "

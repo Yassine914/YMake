@@ -59,26 +59,26 @@ FileType GetFileType(const char *filepath)
 // path/base.c (or path/base.cpp) -> objPath/base.o (decides to use either the c compiler or the cpp compiler.)
 std::string CompileUnit(const Project &proj, BuildMode mode, const char *filepath, const char *objPath)
 {
-    FileType fileType = GetFileType(filepath);
+    // FileType fileType = GetFileType(filepath);
 
-    Compiler compiler   = Compiler::NONE;
-    std::string command = "";
-    if(fileType == FileType::C)
-    {
-        compiler = WhatCompiler(proj.cCompiler);
-        command += proj.cCompiler;
-        command += " ";
-    }
-    else if(fileType == FileType::CPP)
-    {
-        compiler = WhatCompiler(proj.cppCompiler);
-        command += proj.cppCompiler;
-        command += " ";
-    }
+    // Compiler compiler   = Compiler::NONE;
+    // std::string command = "";
+    // if(fileType == FileType::C)
+    // {
+    //     compiler = WhatCompiler(proj.cCompiler);
+    //     command += proj.cCompiler;
+    //     command += " ";
+    // }
+    // else if(fileType == FileType::CPP)
+    // {
+    //     compiler = WhatCompiler(proj.cppCompiler);
+    //     command += proj.cppCompiler;
+    //     command += " ";
+    // }
 
-    // add -c flag.
-    command += (compiler == Compiler::MSVC) ? COMP_MSVC_COMPILE_ONLY : COMP_COMPILE_ONLY;
-    command += std::string(filepath) + " ";
+    // // add -c flag.
+    // command += (compiler == Compiler::MSVC) ? COMP_MSVC_COMPILE_ONLY : COMP_COMPILE_ONLY;
+    // command += std::string(filepath) + " ";
 
     // add -o flag
 
@@ -90,39 +90,39 @@ std::string CompileUnit(const Project &proj, BuildMode mode, const char *filepat
     command += (compiler == Compiler::MSVC) ? COMP_MSVC_OUTPUT_FILE(outputPath.string().c_str())
                                             : COMP_OUTPUT_FILE(outputPath.string().c_str());
 
-    // add defines from project...
-    if(mode == BuildMode::RELEASE)
-    {
-        for(auto macro : proj.definesRelease)
-            command += (compiler == Compiler::MSVC) ? (COMP_MSVC_DEFINE_MACRO(macro.c_str()))
-                                                    : (COMP_DEFINE_MACRO(macro.c_str()));
-    }
-    else if(mode == BuildMode::DEBUG)
-    {
-        for(auto macro : proj.definesDebug)
-            command += (compiler == Compiler::MSVC) ? (COMP_MSVC_DEFINE_MACRO(macro.c_str()))
-                                                    : (COMP_DEFINE_MACRO(macro.c_str()));
-    }
+    // // add defines from project...
+    // if(mode == BuildMode::RELEASE)
+    // {
+    //     for(auto macro : proj.definesRelease)
+    //         command += (compiler == Compiler::MSVC) ? (COMP_MSVC_DEFINE_MACRO(macro.c_str()))
+    //                                                 : (COMP_DEFINE_MACRO(macro.c_str()));
+    // }
+    // else if(mode == BuildMode::DEBUG)
+    // {
+    //     for(auto macro : proj.definesDebug)
+    //         command += (compiler == Compiler::MSVC) ? (COMP_MSVC_DEFINE_MACRO(macro.c_str()))
+    //                                                 : (COMP_DEFINE_MACRO(macro.c_str()));
+    // }
 
-    // add includes from project...
-    for(auto include : proj.includeDirs)
-        command += (compiler == Compiler::MSVC) ? (COMP_MSVC_INCLUDE_DIR(include.c_str()))
-                                                : (COMP_INCLUDE_DIR(include.c_str()));
+    // // add includes from project...
+    // for(auto include : proj.includeDirs)
+    //     command += (compiler == Compiler::MSVC) ? (COMP_MSVC_INCLUDE_DIR(include.c_str()))
+    //                                             : (COMP_INCLUDE_DIR(include.c_str()));
 
-    // add compiler flags from project...
-    for(auto flag : proj.flagsDebug)
-        command += flag + " ";
+    // // add compiler flags from project...
+    // for(auto flag : proj.flagsDebug)
+    //     command += flag + " ";
 
-    // add standard.
-    if(fileType == FileType::C)
-    {
-        command += (compiler == Compiler::MSVC) ? "" : COMP_STANDARD_VERSION_C(proj.cStd);
-    }
-    else
-    {
-        command += (compiler == Compiler::MSVC) ? COMP_MSVC_STANDARD_VERSION_C(proj.cppStd)
-                                                : COMP_STANDARD_VERSION_CPP(proj.cppStd);
-    }
+    // // add standard.
+    // if(fileType == FileType::C)
+    // {
+    //     command += (compiler == Compiler::MSVC) ? "" : COMP_STANDARD_VERSION_C(proj.cStd);
+    // }
+    // else
+    // {
+    //     command += (compiler == Compiler::MSVC) ? COMP_MSVC_STANDARD_VERSION_C(proj.cppStd)
+    //                                             : COMP_STANDARD_VERSION_CPP(proj.cppStd);
+    // }
 
     i32 result = std::system(command.c_str());
     LASSERT(result == 0, RED_TEXT("[YMAKE COMPILE ERROR]: "), "failed to compile source file: ", filepath, "\n\t",
