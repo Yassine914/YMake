@@ -58,6 +58,7 @@ using std::chrono::system_clock;
 #define LOG_DEFAULT_FILE "log.txt"
 #define __FILENAME__     (strstr(__FILE__, "src") ? strstr(__FILE__, "src") + 3 : __FILE__)
 #define FILE_INFO        __FILENAME__, __LINE__
+#define __LINENO__       std::to_string(__LINE__)
 #define NO_FILE_INFO     nulllptr, nullptr
 
 #define LOGINIT() Logger log
@@ -65,21 +66,21 @@ using std::chrono::system_clock;
     LogInfo info;                                                                                                      \
     info.level      = (LogLevel)x;                                                                                     \
     info.filename   = y;                                                                                               \
-    info.linenumber = #z;
+    info.linenumber = z;
 
 #define LOG_CHANGE_PRIORITY(x) Logger::priority = (LogLevel)x;
 
 #define LFATAL(x...)                                                                                                   \
     {                                                                                                                  \
         LOGINIT();                                                                                                     \
-        LOGINFO(LOG_FATAL, __FILENAME__, __LINE__)                                                                     \
+        LOGINFO(LOG_FATAL, __FILENAME__, __LINENO__)                                                                   \
         log.Log(info, x);                                                                                              \
     }
 
 #define LERROR(x...)                                                                                                   \
     {                                                                                                                  \
         LOGINIT();                                                                                                     \
-        LOGINFO(LOG_FATAL, __FILENAME__, __LINE__)                                                                     \
+        LOGINFO(LOG_FATAL, __FILENAME__, __LINENO__)                                                                   \
         log.Log(info, x);                                                                                              \
     }
 
@@ -88,7 +89,7 @@ using std::chrono::system_clock;
         LOGINIT();                                                                                                     \
         if(x)                                                                                                          \
         {                                                                                                              \
-            LOGINFO(LOG_WARN, __FILENAME__, __LINE__)                                                                  \
+            LOGINFO(LOG_WARN, __FILENAME__, __LINENO__)                                                                \
             log.Log(info, y);                                                                                          \
         }                                                                                                              \
         else                                                                                                           \
@@ -103,7 +104,7 @@ using std::chrono::system_clock;
         LOGINIT();                                                                                                     \
         if(x)                                                                                                          \
         {                                                                                                              \
-            LOGINFO(LOG_DEBUG, __FILENAME__, __LINE__)                                                                 \
+            LOGINFO(LOG_DEBUG, __FILENAME__, __LINENO__)                                                               \
             log.Log(info, y);                                                                                          \
         }                                                                                                              \
         else                                                                                                           \
@@ -118,7 +119,7 @@ using std::chrono::system_clock;
         LOGINIT();                                                                                                     \
         if(x)                                                                                                          \
         {                                                                                                              \
-            LOGINFO(LOG_TRACE, __FILENAME__, __LINE__)                                                                 \
+            LOGINFO(LOG_TRACE, __FILENAME__, __LINENO__)                                                               \
             log.Log(info, y);                                                                                          \
         }                                                                                                              \
         else                                                                                                           \
@@ -133,7 +134,7 @@ using std::chrono::system_clock;
         LOGINIT();                                                                                                     \
         if(x)                                                                                                          \
         {                                                                                                              \
-            LOGINFO(LOG_INFO, __FILENAME__, __LINE__)                                                                  \
+            LOGINFO(LOG_INFO, __FILENAME__, __LINENO__)                                                                \
             log.Log(info, y);                                                                                          \
         }                                                                                                              \
         else                                                                                                           \

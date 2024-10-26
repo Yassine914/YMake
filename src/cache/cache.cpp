@@ -563,6 +563,12 @@ bool RemoveAllMetadataCache()
 
 std::vector<std::string> GetSrcFilesRecursive(const std::string &dirPath)
 {
+    if(!fs::exists(dirPath))
+    {
+        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't find directory: ", dirPath, "\n");
+        throw Y::Error("couldn't find directory.");
+    }
+
     std::vector<std::string> files;
     for(const auto &entry : fs::recursive_directory_iterator(dirPath))
     {

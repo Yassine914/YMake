@@ -17,7 +17,7 @@ includes = [
 ]
 
 libs.src = [
-    {name = "DEngine", path = "./libs/DEngine/src", include = "./libs/DEngine/include", type = "static"}
+    {name = "DEngine", path = "$(YM_CURRENT_DIR)/lib/DEngine/src", include = "./libs/DEngine/include", type = "static"}
 ]
 
 libs.sys = [

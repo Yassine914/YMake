@@ -6,7 +6,7 @@
 
 #include "../toml/parser.h"
 #include "../cache/cache.h"
-#include "../build/build.h"
+#include "../build/build2.h"
 
 #include <algorithm>
 #include <functional>

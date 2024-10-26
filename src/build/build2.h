@@ -9,6 +9,8 @@
 
 #include "mt.h"
 
+#include <filesystem>
+
 namespace Y::Build {
 
 enum class BuildMode
@@ -41,7 +43,7 @@ enum class FileType
 FileType GetFileType(const char *filepath);
 
 // returns a compiler enum value from a string
-Compiler WhatCompiler(std::string comp);
+Compiler WhatCompiler(const std::string &compiler);
 
 void BuildProject(Project projects, BuildMode mode, bool cleanBuild);
 
