@@ -1,7 +1,8 @@
-# PROJECT: Cube
+# PROJECT: cube
 
-[Cube]
+[cube]
 
+#could be an array for multiple language support
 lang = "C++"
 
 cpp.std = 14
@@ -11,14 +12,54 @@ build.type = "executable"
 build.dir = "./build"
 
 src = "./src"
+# env = "./.env" # .env file for any environment variables, like VK_PATH etc... to use it: $(VK_PATH)
 
-[Cube.compiler]
-defines.debug= [
-    "DDEBUG",
+includes = [
+    "./src"
 ]
 
-flags = [
+# replace with the libraries that need compiling.
+# libs.src = [
+    # {name = "GLFW", path = "./thirdparty/GLFW/src", include = "./thirdparty/GLFW/include", type = "static"}
+# ]
+
+# pre-built libraries.
+libs.built = [
+    # "$(YM_CURRENT_DIR)/bin/glm.a",
+    # "$(VK_PATH)/bin/Vulkan.dll"
+]
+
+# libs that don't need a path. (aka: known by the compiler)
+libs.sys = [
+    "opengl32",
+    "gdi32",
+    "winmm",
+]
+
+
+[cube.compiler]
+
+# compiler optimization: 0 -> no optimization. 3 -> O3 optimization (max)
+debug.optimization = 0
+
+debug.defines = [
+    "DDEBUG",
+    "DTEST=1"
+]
+
+# compiler flags.
+debug.flags = [
     "-Wall",
-    "-Wextra",
+    # "-Wargs",
     "-g"
-]# update
+]
+
+release.optimization = 3
+
+release.defines = [
+    "DNDEBUG",
+]
+
+# release.flags = [
+    # "-Wno-unused-variable",
+# ]

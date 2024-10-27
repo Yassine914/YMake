@@ -92,6 +92,7 @@ string CompileFile(Project proj, const string &file, const string &outDir, Build
 
     // compiler.
     FileType fileType = GetFileType(file);
+    LTRACE(true, "compiling file: ", file, "\n");
 
     Compiler compiler = Compiler::NONE;
     string command    = "";
@@ -178,13 +179,17 @@ string CompileFile(Project proj, const string &file, const string &outDir, Build
 
     command += (compiler == Compiler::MSVC) ? COMP_MSVC_OUTPUT_FILE(outPath) : COMP_OUTPUT_FILE(outPath);
 
-    // suppress output. TODO:
+    // suppress output. NOTE: don't suppress output for compiler errors.
     // command += (compiler == Compiler::MSVC) ? COMP_MSVC_SUPPRESS_OUTPUT : COMP_SUPPRESS_OUTPUT;
+
+    LTRACE(true, "COMMAND TO COMPILE: \n\t", command.c_str(), "\n");
 
     // compile the file.
     i32 result = std::system(command.c_str());
     LASSERT(result == 0, RED_TEXT("[YMAKE COMPILE ERROR]: "), "failed to compile source file: ", file, "\n\t",
             "exit code: ", result, "\n");
+
+    LTRACE(true, "compiled file at: ", outPath, "\n");
 
     return Cache::ToAbsolutePath(outPath);
 }
@@ -199,6 +204,8 @@ bool IsToolAvailable(const string &tool)
 
 string LinkStaticLibrary(Project &proj, Library &lib, vector<string> compiledFiles, const char *buildDir)
 {
+    LTRACE(true, "linking/packaging static library: ", lib.name, "...\n");
+
 #if defined(IPLATFORM_WINDOWS)
     std::string libStaticExt = ".lib";
 #elif defined(IPLATFORM_LINUX) || defined(IPLATFORM_FREEBSD) || defined(IPLATFORM_MACOS)
@@ -231,10 +238,14 @@ string LinkStaticLibrary(Project &proj, Library &lib, vector<string> compiledFil
         // suppress output.
         command += COMP_SUPPRESS_OUTPUT;
 
+        LTRACE(true, "COMMAND TO LINK STATIC LIB: \n\t", command.c_str(), "\n");
+
         // link the library.
         i32 result = std::system(command.c_str());
         LASSERT(result == 0, RED_TEXT("[YMAKE LINKER ERROR]: "), "failed to link library: ", lib.name, "\n\t",
                 "exit code: ", result, "\n");
+
+        LTRACE(true, "linked static library at: ", outname, "\n");
 
         return outname;
     }
@@ -252,10 +263,14 @@ string LinkStaticLibrary(Project &proj, Library &lib, vector<string> compiledFil
         // suppress output.
         command += COMP_MSVC_SUPPRESS_OUTPUT;
 
+        LTRACE(true, "COMMAND TO LINK STATIC LIB: \n\t", command.c_str(), "\n");
+
         // link the library.
         i32 result = std::system(command.c_str());
         LASSERT(result == 0, RED_TEXT("[YMAKE LINKER ERROR]: "), "failed to link library: ", lib.name, "\n\t",
                 "exit code: ", result, "\n");
+
+        LTRACE(true, "linked static library at: ", outname, "\n");
 
         return outname;
     }
@@ -273,10 +288,14 @@ string LinkStaticLibrary(Project &proj, Library &lib, vector<string> compiledFil
         // suppress output.
         command += COMP_SUPPRESS_OUTPUT;
 
+        LTRACE(true, "COMMAND TO LINK STATIC LIB: \n\t", command.c_str(), "\n");
+
         // link the library.
         i32 result = std::system(command.c_str());
         LASSERT(result == 0, RED_TEXT("[YMAKE LINKER ERROR]: "), "failed to link library: ", lib.name, "\n\t",
                 "exit code: ", result, "\n");
+
+        LTRACE(true, "linked static library at: ", outname, "\n");
 
         return outname;
     }
@@ -291,6 +310,7 @@ string LinkStaticLibrary(Project &proj, Library &lib, vector<string> compiledFil
 // string builtLib = LinkLibrary(Project, lib, compiledFiles, buildDir);
 string LinkDynamicLibrary(Project &proj, Library &lib, vector<string> compiledFiles, const char *buildDir)
 {
+    LTRACE(true, "linking shared library: ", lib.name, "...\n");
 
 #if defined(IPLATFORM_WINDOWS)
     std::string libDynamicExt = ".dll";
@@ -344,11 +364,7 @@ string LinkDynamicLibrary(Project &proj, Library &lib, vector<string> compiledFi
     for(auto flag : proj.flagsRelease)
         command += flag + " ";
 
-    // add library dirs.
-    // FIXME: see if this is needed.
-    // for(auto libDir : proj.libDirs)
-    //     command +=
-    //         (compiler == Compiler::MSVC) ? COMP_MSVC_LIBRARY_DIR(libDir.c_str()) : COMP_LIBRARY_DIR(libDir.c_str());
+    // add include dirs.
     for(auto inclDir : proj.includeDirs)
         command +=
             (compiler == Compiler::MSVC) ? COMP_MSVC_INCLUDE_DIR(inclDir.c_str()) : COMP_INCLUDE_DIR(inclDir.c_str());
@@ -369,10 +385,14 @@ string LinkDynamicLibrary(Project &proj, Library &lib, vector<string> compiledFi
     string outname = string(buildDir) + "/" + lib.name + libDynamicExt;
     command += (compiler == Compiler::MSVC) ? COMP_MSVC_OUTPUT_FILE(outname) : COMP_OUTPUT_FILE(outname);
 
+    LTRACE(true, "COMMAND TO LINK SHARED LIB: \n\t", command.c_str(), "\n");
+
     // link the library.
     i32 result = std::system(command.c_str());
     LASSERT(result == 0, RED_TEXT("[YMAKE LINKER ERROR]: "), "failed to link library: ", lib.name, "\n\t",
             "exit code: ", result, "\n");
+
+    LTRACE(true, "built dynamic library at: ")
 
     return outname;
 }
@@ -380,7 +400,6 @@ string LinkDynamicLibrary(Project &proj, Library &lib, vector<string> compiledFi
 Library BuildLibrary(Project &proj, Library &lib, const char *buildDir, f32 libPercent, f32 &currentPercent)
 {
     LLOG(BLUE_TEXT("[YMAKE BUILD]: "), "building library: ", CYAN_TEXT(lib.name), "...\n");
-    LTRACE(true, "CALLING FROM BUILD_LIBRARY FUNCTION, LIB PATH: ", lib.path, "\n");
 
     if(lib.path.empty())
     {
@@ -388,33 +407,15 @@ Library BuildLibrary(Project &proj, Library &lib, const char *buildDir, f32 libP
         throw Y::Error("library path is empty.");
     }
 
-    LTRACE(true, "BEFORE GETTING FILES\n");
     vector<string> files = Cache::GetSrcFilesRecursive(lib.path);
-    LTRACE(true, "AFTER GETTING FILES\n");
-
-    // get list of files.
-    try
-    {
-        Cache::GetSrcFilesRecursive(lib.path);
-    }
-    catch(Y::Error &err)
-    {
-        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't find any files in library path: ", CYAN_TEXT(lib.path), "\n");
-        throw Y::Error("couldn't find any files in library path.");
-    }
-
-    // vector<string> files = Cache::GetSrcFilesRecursive(lib.path);
-    LTRACE(true, BLUE_TEXT("[YMAKE BUILD]: "), "found ", files.size(), " files in library path.\n");
 
     // get directory for .o files.
     string projCacheDir = string(YMAKE_CACHE_DIR) + "/" + proj.name;
     if(!Cache::DirExists(projCacheDir.c_str()))
         Cache::CreateDir(projCacheDir.c_str());
 
-    string cacheDir = string(projCacheDir) + "/" + lib.name;
+    string cacheDir = string(projCacheDir) + "/" + lib.name + "";
     Cache::CreateDir(cacheDir.c_str());
-
-    LTRACE(true, "created cache dir at: ", cacheDir, "\n");
 
     // percentage calculation.
     f32 filePercent_f = 100.0f / files.size();
@@ -422,13 +423,10 @@ Library BuildLibrary(Project &proj, Library &lib, const char *buildDir, f32 libP
     i32 filePercent = static_cast<i32>(filePercent_f);
 
     i32 percent = currentPercent;
-    LTRACE(true, "percentage per file: ", filePercent, "\n");
 
     // create a thread pool...
-    LTRACE(true, "compiling files using MT for lib: ", lib.name, "...\n");
     ThreadPool threadPool;
     vector<string> compiledFiles;
-    LTRACE(true, "compiling files using MT for lib: ", lib.name, "...\n");
     for(auto file : files)
     {
         threadPool.AddTask([&proj, file, cacheDir, &compiledFiles, &percent, filePercent, &threadPool, &lib] {
@@ -451,16 +449,12 @@ Library BuildLibrary(Project &proj, Library &lib, const char *buildDir, f32 libP
                 percent = 100;
 
             // TODO: see if the message should be (building file) and at the top of the lambda or same as it is now.
-            LLOG(GREEN_TEXT("[YMAKE BUILD]: "), BLUE_TEXT("[", percent, "] "), "built file: ", CYAN_TEXT(file), "\n");
+            LLOG(GREEN_TEXT("[YMAKE BUILD]: "), BLUE_TEXT("[", percent, "%] "), "built file: ", CYAN_TEXT(file), "\n");
             threadPool.Unlock();
         });
     }
 
-    LTRACE(true, "waiting for all files to compile...\n");
-
     threadPool.JoinAll();
-
-    LTRACE(true, "all files compiled.\n");
 
     // link everything.
     string builtLib;
@@ -477,7 +471,7 @@ Library BuildLibrary(Project &proj, Library &lib, const char *buildDir, f32 libP
     }
 
     // building library is done!
-    LLOG(GREEN_TEXT("[YMAKE BUILD]: "), BLUE_TEXT("[", percent, "] "), "built library: ", CYAN_TEXT(lib.name), "\n");
+    LLOG(GREEN_TEXT("[YMAKE BUILD]: "), BLUE_TEXT("[", percent, "%] "), "built library: ", CYAN_TEXT(lib.name), "\n");
 
     currentPercent += libPercent;
 
@@ -492,7 +486,7 @@ Library BuildLibrary(Project &proj, Library &lib, const char *buildDir, f32 libP
 }
 
 // LinkEverything(proj, compiledFiles, compiledLibs);
-void LinkEverything(Project &proj, vector<string> compiledFiles, vector<Library> compiledLibs, BuildMode mode)
+string LinkEverything(Project &proj, vector<string> compiledFiles, vector<Library> compiledLibs, BuildMode mode)
 {
     LLOG(BLUE_TEXT("[YMAKE BUILD]: "), "linking project: ", CYAN_TEXT(proj.name), "...\n");
 
@@ -533,12 +527,6 @@ void LinkEverything(Project &proj, vector<string> compiledFiles, vector<Library>
         for(auto flag : proj.flagsDebug)
             command += flag + " ";
     }
-
-    // // add library dirs.
-    // FIXME: see if this is needed.
-    // for(auto libDir : proj.libDirs)
-    //     command +=
-    //         (compiler == Compiler::MSVC) ? COMP_MSVC_LIBRARY_DIR(libDir.c_str()) : COMP_LIBRARY_DIR(libDir.c_str());
 
     // add includes.
     for(auto inclDir : proj.includeDirs)
@@ -599,34 +587,47 @@ void LinkEverything(Project &proj, vector<string> compiledFiles, vector<Library>
     #error "[YMAKE LINKER ERROR]: unsupported platform"
 #endif
 
+    string outname;
     if(proj.buildType == BuildType::EXECUTABLE)
     {
-        string outname = string(proj.buildDir) + "/" + proj.name + libExecutableExt;
+        outname = string(proj.buildDir) + "/" + proj.name + libExecutableExt;
         command += (compiler == Compiler::MSVC) ? COMP_MSVC_OUTPUT_FILE(outname) : COMP_OUTPUT_FILE(outname);
     }
     else if(proj.buildType == BuildType::STATIC_LIB)
     {
-        string outname = string(proj.buildDir) + "/" + proj.name + libStaticExt;
+        outname = string(proj.buildDir) + "/" + proj.name + libStaticExt;
         command += (compiler == Compiler::MSVC) ? COMP_MSVC_OUTPUT_FILE(outname) : COMP_OUTPUT_FILE(outname);
     }
     else if(proj.buildType == BuildType::SHARED_LIB)
     {
-        string outname = string(proj.buildDir) + "/" + proj.name + libDynamicExt;
+        outname = string(proj.buildDir) + "/" + proj.name + libDynamicExt;
         command += (compiler == Compiler::MSVC) ? COMP_MSVC_OUTPUT_FILE(outname) : COMP_OUTPUT_FILE(outname);
     }
+
+    LTRACE(true, "COMMAND TO LINK ALL: \n\t", command.c_str(), "\n");
 
     // link the project.
     i32 result = std::system(command.c_str());
     LASSERT(result == 0, RED_TEXT("[YMAKE LINKER ERROR]: "), "failed to link project: ", proj.name, "\n\t",
             "exit code: ", result, "\n");
 
+    LTRACE(true, "linked project at: ", proj.buildDir, "\n");
+
     // TODO: might remove this message.
     LLOG(GREEN_TEXT("[YMAKE BUILD]: "), "linked project: ", CYAN_TEXT(proj.name), "\n");
+
+    return outname;
 }
 
 void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
 {
     LLOG(BLUE_TEXT("[YMAKE BUILD]: "), "building project: ", CYAN_TEXT(proj.name), "...\n");
+
+    if(!Cache::DirExists(proj.buildDir.c_str()))
+    {
+        LTRACE(true, BLUE_TEXT("[YMAKE BUILD]: "), "creating build directory: ", CYAN_TEXT(proj.buildDir), "\n");
+        Cache::CreateDir(proj.buildDir.c_str());
+    }
 
     // start timer to measure build time.
     auto start  = std::chrono::high_resolution_clock::now();
@@ -657,11 +658,19 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
     // build project files.
     // build project files -> returns list of .o files.
     vector<string> files = Cache::GetSrcFilesRecursive(proj.src);
-    string projCacheDir  = string(YMAKE_CACHE_DIR) + "/" + proj.name;
+    LTRACE(true, "project files: ", files.size(), "\n");
+    for(auto file : files)
+    {
+        LTRACE(true, "\tFILE: ", file, "\n");
+    }
+
+    string projCacheDir = string(YMAKE_CACHE_DIR) + "/" + proj.name;
     if(!Cache::DirExists(projCacheDir.c_str()))
         Cache::CreateDir(projCacheDir.c_str());
 
     string cacheDir = string(projCacheDir) + "/" + "src";
+    if(!Cache::DirExists(cacheDir.c_str()))
+        Cache::CreateDir(cacheDir.c_str());
 
     // percentage calculation.
     f32 filePercent_f = 100.0f / files.size();
@@ -685,30 +694,40 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
         if(percent == 99)
             percent = 100;
 
-        LLOG(GREEN_TEXT("[YMAKE BUILD]: "), BLUE_TEXT("[", percent, "] "), "built file: ", CYAN_TEXT(file), "\n");
+        LLOG(GREEN_TEXT("[YMAKE BUILD]: "), BLUE_TEXT("[", percent, "%] "), "built file: ", CYAN_TEXT(file), "\n");
     }
 
     //____________________ LINK ALL ___________________
     LLOG(BLUE_TEXT("[YMAKE BUILD]: "), "linking project: ", CYAN_TEXT(proj.name), "...\n")
 
+    string outfile;
     try
     {
-        LinkEverything(proj, compiledFiles, compiledLibs, mode);
+        LTRACE(true, "linking everything...\n");
+        outfile = LinkEverything(proj, compiledFiles, compiledLibs, mode);
     }
     catch(Y::Error &err)
     {
-        LLOG(RED_TEXT("[YMAKE BUILD]: "), "error linking project: ", CYAN_TEXT(proj.name), "\n\t", err.what(), "\n");
+        LLOG(RED_TEXT("[YMAKE BUILD ERROR]: "), "error linking project: ", CYAN_TEXT(proj.name), "\n\t", err.what(),
+             "\n");
+    }
+    catch(...)
+    {
+        LLOG(RED_TEXT("[YMAKE BUILD ERROR]: "), "error linking project: ", CYAN_TEXT(proj.name), "\n");
     }
 
     // get final build time
     auto end      = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start);
 
-    LLOG(GREEN_TEXT("[YMAKE BUILD]: ", "built project: ", CYAN_TEXT(proj.name), "\n"))
-    LLOG("\t build took ", GREEN_TEXT(duration.count()), "s\n");
+    auto seconds      = std::chrono::duration_cast<std::chrono::seconds>(duration).count();
+    auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() % 1000;
+
+    LLOG(GREEN_TEXT("[YMAKE BUILD SUCCESS]: ", "built project: ", CYAN_TEXT(proj.name), "\n"))
+    LLOG("\t build took ", GREEN_TEXT(seconds), "s ", GREEN_TEXT(milliseconds), "ms\n");
 
     if(proj.buildType == BuildType::EXECUTABLE)
-        LLOG(PURPLE_TEXT("to run project -> "), "\'./\'", proj.buildDir, "/", proj.name);
+        LLOG(PURPLE_TEXT("to run project -> "), "\'", outfile, "\'\n");
 }
 
 } // namespace Y::Build
