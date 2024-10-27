@@ -29,10 +29,15 @@ struct Library // dependency
     std::string name;
     std::string path;
     BuildType type;
+    std::string include;
 
     Library() {}
     Library(std::string name, std::string path) : name{name}, path{path} {}
     Library(std::string name, std::string path, BuildType type) : name{name}, path{path}, type{type} {}
+    Library(std::string name, std::string path, BuildType type, std::string include)
+        : name{name}, path{path}, type{type}, include{include}
+    {
+    }
 };
 
 // clang-format off
@@ -46,7 +51,7 @@ std::string SerializeVectorOfEnums(const std::vector<T> &vec)
     {
         oss << static_cast<i32>(item) << "\n";
     }
-    return oss.str();   
+    return oss.str();
 }
 
 // Serialize a vector of items
@@ -168,6 +173,7 @@ class Project
             oss << lib.name << "\n";
             oss << lib.path << "\n";
             oss << (int)lib.type << "\n";
+            oss << lib.include << "\n";
         }
 
         oss << SerializeVector(preBuiltLibs);
@@ -217,13 +223,18 @@ class Project
         {
             std::string libName;
             std::getline(iss, libName);
+
             std::string libPath;
             std::getline(iss, libPath);
+
             std::string libTypeStr;
             std::getline(iss, libTypeStr);
             BuildType libType = (BuildType)std::atoi(libTypeStr.c_str());
 
-            libs.push_back(Library(libName, libPath, libType));
+            std::string libIncl;
+            std::getline(iss, libIncl);
+
+            libs.push_back(Library(libName, libPath, libType, libIncl));
         }
 
         preBuiltLibs = DeserializeVector<std::string>(iss);
@@ -296,6 +307,7 @@ class Project
                      : lib.type == BuildType::SHARED_LIB ? "Shared (Dynamic) Library"
                                                          : "Static Library",
                      "\n");
+                LLOG("\t\t\tInclude: ", lib.include, "\n");
             }
         }
 

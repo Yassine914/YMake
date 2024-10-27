@@ -381,18 +381,7 @@ void ParseProjectData(const toml::table &config, Project &proj)
 
             if(auto libInclPath = lib[YMAKE_TOML_LIB_INCLUDE].value<std::string>())
             {
-                bool found = false;
-                for(std::string dir : proj.includeDirs)
-                {
-                    if(libInclPath.value() == dir)
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-
-                if(!found)
-                    proj.includeDirs.push_back(ExpandMacros(libInclPath.value(), dotenv));
+                library.include = ExpandMacros(libInclPath.value(), dotenv);
             }
             else
             {

@@ -9,18 +9,14 @@ namespace Y::Build {
 // path/to/filename.c -> filename
 string Basename(string fullpath)
 {
-    size_t pos = fullpath.find_last_of("/\\");
-    if(pos != string::npos)
-    {
-        string filename = fullpath.substr(pos + 1);
-        size_t dotPos   = filename.find_last_of('.');
-        if(dotPos != string::npos)
-        {
-            return filename.substr(0, dotPos);
-        }
-        return filename;
-    }
-    return fullpath;
+    fs::path path(fullpath);
+    return path.stem().string();
+}
+
+string Basepath(string fullpath)
+{
+    fs::path path(fullpath);
+    return path.parent_path().string();
 }
 
 std::string ToLower(const std::string &str)
@@ -85,7 +81,7 @@ FileType GetFileType(const string &filepath)
 }
 
 // path/to/file.c -> outDir/file_HASH.o
-string CompileFile(Project proj, const string &file, const string &outDir, BuildMode mode, BuildType type)
+string CompileFile(Project proj, const string &file, const string &outDir, BuildMode mode, BuildType type, bool project)
 {
     // ex: clang -c file.c [flags] -o Concat(outDir, file.o)
     // flags: linking, optimization, include dirs, defines, etc.
@@ -120,7 +116,7 @@ string CompileFile(Project proj, const string &file, const string &outDir, Build
         command += " ";
     }
 
-    if(type == BuildType::SHARED_LIB)
+    if(type == BuildType::SHARED_LIB && compiler != Compiler::CLANG)
         command += (compiler == Compiler::MSVC) ? "" : COMP_POSITION_INDEPENDENT_CODE;
 
     // add -c flag.
@@ -142,6 +138,22 @@ string CompileFile(Project proj, const string &file, const string &outDir, Build
     for(auto include : proj.includeDirs)
         command +=
             (compiler == Compiler::MSVC) ? COMP_MSVC_INCLUDE_DIR(include.c_str()) : COMP_INCLUDE_DIR(include.c_str());
+
+    command += (compiler == Compiler::MSVC) ? COMP_MSVC_INCLUDE_DIR(Basepath(file).c_str())
+                                            : COMP_INCLUDE_DIR(Basepath(file).c_str());
+
+    // add build dir as include.
+    command += (compiler == Compiler::MSVC) ? COMP_MSVC_INCLUDE_DIR(proj.buildDir.c_str())
+                                            : COMP_INCLUDE_DIR(proj.buildDir.c_str());
+
+    if(project)
+    {
+        for(auto lib : proj.libs)
+        {
+            command += (compiler == Compiler::MSVC) ? COMP_MSVC_INCLUDE_DIR(lib.include.c_str())
+                                                    : COMP_INCLUDE_DIR(lib.include.c_str());
+        }
+    }
 
     // add defines.
     if(mode == BuildMode::RELEASE)
@@ -199,7 +211,7 @@ bool IsToolAvailable(const string &tool)
     string command = tool + " --version ";
     command += COMP_SUPPRESS_OUTPUT;
     int result = std::system(command.c_str());
-    return !(result == 0); // 0 means success.
+    return (result == 0); // 0 means success.
 }
 
 string LinkStaticLibrary(Project &proj, Library &lib, vector<string> compiledFiles, const char *buildDir)
@@ -312,8 +324,11 @@ string LinkDynamicLibrary(Project &proj, Library &lib, vector<string> compiledFi
 {
     LTRACE(true, "linking shared library: ", lib.name, "...\n");
 
+    bool onWindows = false;
+
 #if defined(IPLATFORM_WINDOWS)
     std::string libDynamicExt = ".dll";
+    onWindows                 = true;
 #elif defined(IPLATFORM_MACOS)
     std::string libDynamicExt = ".dylib";
 #elif defined(IPLATFORM_LINUX) || defined(IPLATFORM_FREEBSD)
@@ -364,15 +379,6 @@ string LinkDynamicLibrary(Project &proj, Library &lib, vector<string> compiledFi
     for(auto flag : proj.flagsRelease)
         command += flag + " ";
 
-    // add include dirs.
-    for(auto inclDir : proj.includeDirs)
-        command +=
-            (compiler == Compiler::MSVC) ? COMP_MSVC_INCLUDE_DIR(inclDir.c_str()) : COMP_INCLUDE_DIR(inclDir.c_str());
-
-    // add libraries.
-    for(auto lib : proj.libs)
-        command += (compiler == Compiler::MSVC) ? COMP_MSVC_LINK_LIBRARY(lib.name) : COMP_LINK_LIBRARY(lib.name);
-
     // add system libraries.
     for(auto sysLib : proj.sysLibs)
         command += (compiler == Compiler::MSVC) ? COMP_MSVC_LINK_LIBRARY(sysLib) : COMP_LINK_LIBRARY(sysLib);
@@ -382,7 +388,8 @@ string LinkDynamicLibrary(Project &proj, Library &lib, vector<string> compiledFi
         command += (compiler == Compiler::MSVC) ? COMP_MSVC_LINK_LIBRARY(prebuiltLib) : COMP_LINK_LIBRARY(prebuiltLib);
 
     // add output file.
-    string outname = string(buildDir) + "/" + lib.name + libDynamicExt;
+    const string outname = string(buildDir) + "/" + lib.name + libDynamicExt;
+    LTRACE(true, "OUTNAME: ", outname, "\n------------------------------------------\n");
     command += (compiler == Compiler::MSVC) ? COMP_MSVC_OUTPUT_FILE(outname) : COMP_OUTPUT_FILE(outname);
 
     LTRACE(true, "COMMAND TO LINK SHARED LIB: \n\t", command.c_str(), "\n");
@@ -392,7 +399,142 @@ string LinkDynamicLibrary(Project &proj, Library &lib, vector<string> compiledFi
     LASSERT(result == 0, RED_TEXT("[YMAKE LINKER ERROR]: "), "failed to link library: ", lib.name, "\n\t",
             "exit code: ", result, "\n");
 
-    LTRACE(true, "built dynamic library at: ")
+    if(!onWindows)
+        return outname;
+
+    // NOTE: THANK GOD FOR GCC...
+    if(compiler == Compiler::GCC)
+    {
+        LTRACE(true, "COMPILER IS GCC. NO NEED TO GENERATE A .lib file.",
+               "\n-------------------------------------------\n");
+        return outname;
+    }
+
+    // windows specific.
+
+    // compile the .lib file.
+    bool gendefAvailable   = IsToolAvailable("gendef");
+    bool dumpbinAvailable  = IsToolAvailable("dumpbin");
+    bool pexportsAvailable = IsToolAvailable("pexports");
+
+    bool dlltoolAvailable = IsToolAvailable("dlltool");
+    bool msvcAvailable    = IsToolAvailable("lib");
+    bool gccAvailable     = IsToolAvailable("gcc");
+    bool llvmArAvailable  = IsToolAvailable("llvm-ar");
+
+    string defFile = Basepath(outname) + "/" + lib.name + ".def";
+
+    // Step 1: Generate the .def file
+    if(gendefAvailable)
+    {
+        string defCommand = "gendef " + outname;
+
+        result = std::system(defCommand.c_str());
+        LASSERT(result == 0, RED_TEXT("[YMAKE LINKER ERROR]: "), "failed to generate .def file for: ", lib.name, "\n\t",
+                "exit code: ", result, "\n");
+    }
+
+    if(!fs::exists(defFile) && dumpbinAvailable)
+    {
+        string defCommand = "dumpbin /exports " + outname + " > " + defFile;
+
+        result = std::system(defCommand.c_str());
+        LASSERT(result == 0, RED_TEXT("[YMAKE LINKER ERROR]: "), "failed to generate .def file for: ", lib.name, "\n\t",
+                "exit code: ", result, "\n");
+    }
+    else if(!fs::exists(defFile) && pexportsAvailable)
+    {
+        string defCommand = "pexports " + outname + " > " + defFile;
+
+        result = std::system(defCommand.c_str());
+        LASSERT(result == 0, RED_TEXT("[YMAKE LINKER ERROR]: "), "failed to generate .def file for: ", lib.name, "\n\t",
+                "exit code: ", result, "\n");
+    }
+    else if(!fs::exists(defFile))
+    {
+        LLOG(RED_TEXT("[YMAKE ERROR]: "),
+             ".def generator tools are not available (or didn't generate a .def file). Cannot generate .def file for "
+             "library: ",
+             lib.name, "\n");
+        throw Y::Error("couldn't generate a .def file required for generating a .lib file. (required for dynamic "
+                       "libraries on windows.)");
+    }
+
+    // Step 2: Generate the .lib file
+    if(dlltoolAvailable)
+    {
+        string libCommand = "dlltool -d " + defFile + " -l " + Basepath(outname) + "/" + lib.name + ".lib";
+        result            = std::system(libCommand.c_str());
+        LASSERT(result == 0, RED_TEXT("[YMAKE LINKER ERROR]: "), "failed to generate .lib file for: ", lib.name, "\n\t",
+                "exit code: ", result, "\n");
+    }
+    else if(msvcAvailable)
+    {
+        string libCommand = "lib /DEF:" + defFile + " /OUT:" + outname.substr(0, outname.find_last_of('.')) + ".lib";
+        result            = std::system(libCommand.c_str());
+        LASSERT(result == 0, RED_TEXT("[YMAKE LINKER ERROR]: "),
+                "failed to generate .lib file using MSVC for: ", lib.name, "\n\t", "exit code: ", result, "\n");
+    }
+    else if(gccAvailable)
+    {
+        // TODO: this takes a .o file...
+        string libCommand = "gcc -shared -o " + outname + " " + outname.substr(0, outname.find_last_of('.')) +
+                            ".o -Wl,--out-implib," + outname.substr(0, outname.find_last_of('.')) + ".lib";
+        result = std::system(libCommand.c_str());
+        LASSERT(result == 0, RED_TEXT("[YMAKE LINKER ERROR]: "),
+                "failed to generate .lib file using GCC for: ", lib.name, "\n\t", "exit code: ", result, "\n");
+    }
+    else if(llvmArAvailable)
+    {
+        // TODO: this takes a .o file...
+        string libCommand = "llvm-ar rcs " + outname.substr(0, outname.find_last_of('.')) + ".lib " +
+                            outname.substr(0, outname.find_last_of('.')) + ".o";
+        result = std::system(libCommand.c_str());
+        LASSERT(result == 0, RED_TEXT("[YMAKE LINKER ERROR]: "),
+                "failed to generate .lib file using LLVM for: ", lib.name, "\n\t", "exit code: ", result, "\n");
+    }
+    else
+    {
+        if(!gendefAvailable)
+        {
+            LLOG(RED_TEXT("[YMAKE ERROR]: "),
+                 "'gendef' tool is not available. Cannot generate .def file for library: ", lib.name, "\n");
+        }
+        if(!dlltoolAvailable)
+        {
+            LLOG(RED_TEXT("[YMAKE ERROR]: "),
+                 "'dlltool' tool is not available. Cannot generate .lib file for library: ", lib.name, "\n");
+        }
+        if(!msvcAvailable)
+        {
+            LLOG(RED_TEXT("[YMAKE ERROR]: "),
+                 "'lib' tool is not available. Cannot generate .lib file using MSVC for library: ", lib.name, "\n");
+        }
+        if(!gccAvailable)
+        {
+            LLOG(RED_TEXT("[YMAKE ERROR]: "), "'gcc' tool is not available. Cannot generate .lib file using GCC.\n");
+        }
+        if(!llvmArAvailable)
+        {
+            LLOG(RED_TEXT("[YMAKE ERROR]: "),
+                 "'llvm-ar' tool is not available. Cannot generate .lib file using LLVM.\n");
+        }
+
+        LLOG(YELLOW_TEXT("[YMAKE]: Tools you can install:\n"));
+        LLOG("\tgendef, and dlltool\n\tmsvc (cl)\n\tgcc (mingw)\n\tllvm-ar (llvm tools)\n");
+        throw Y::Error("couldn't generate a .lib file required for a dynamic library (dll) [necessary for windows]");
+    }
+
+    // Remove the .def file if it was generated
+    if(gendefAvailable)
+    {
+        if(std::remove(defFile.c_str()) != 0)
+        {
+            LLOG(RED_TEXT("[YMAKE ERROR]: "), "failed to remove .def file: ", defFile, "\n");
+        }
+    }
+
+    LTRACE(true, "OUTNAME: ", outname, "\n------------------------------------------\n");
 
     return outname;
 }
@@ -433,7 +575,8 @@ Library BuildLibrary(Project &proj, Library &lib, const char *buildDir, f32 libP
             try
             {
                 // always compile library files in release mode.
-                string compiledFile = CompileFile(proj, file.c_str(), cacheDir.c_str(), BuildMode::RELEASE, lib.type);
+                string compiledFile =
+                    CompileFile(proj, file.c_str(), cacheDir.c_str(), BuildMode::RELEASE, lib.type, false);
                 LTRACE(true, "compiled file at: ", compiledFile, "\n");
 
                 compiledFiles.push_back(compiledFile);
@@ -464,6 +607,8 @@ Library BuildLibrary(Project &proj, Library &lib, const char *buildDir, f32 libP
             builtLib = LinkStaticLibrary(proj, lib, compiledFiles, buildDir);
         else if(lib.type == BuildType::SHARED_LIB)
             builtLib = LinkDynamicLibrary(proj, lib, compiledFiles, buildDir);
+        else
+            throw Y::Error("unknown library type.");
     }
     catch(Y::Error &err)
     {
@@ -477,8 +622,11 @@ Library BuildLibrary(Project &proj, Library &lib, const char *buildDir, f32 libP
 
     Library compLib;
     compLib.name = lib.name;
+    // NOTE: path is path to final lib (ex: build/DEngine.dll)
     compLib.path = builtLib;
-    compLib.type = lib.type;
+    LTRACE(true, "COMPILED LIBRARY AT: ", builtLib, "\n---------------------------------------\n");
+    compLib.type    = lib.type;
+    compLib.include = lib.include;
 
     LTRACE(true, "library built at: ", builtLib, "\n");
 
@@ -535,7 +683,14 @@ string LinkEverything(Project &proj, vector<string> compiledFiles, vector<Librar
 
     // add libraries.
     for(auto lib : compiledLibs)
-        command += (compiler == Compiler::MSVC) ? COMP_MSVC_LINK_LIBRARY(lib.path) : COMP_LINK_LIBRARY(lib.path);
+    {
+        command += (compiler == Compiler::MSVC) ? COMP_MSVC_INCLUDE_DIR(lib.include) : COMP_INCLUDE_DIR(lib.include);
+        command += (compiler == Compiler::MSVC) ? COMP_MSVC_LIBRARY_DIR(Basepath(lib.path))
+                                                : COMP_LIBRARY_DIR(Basepath(lib.path));
+
+        // NOTE: could use Basename(lib.path) instead of lib.name
+        command += (compiler == Compiler::MSVC) ? COMP_MSVC_LINK_LIBRARY(lib.name) : COMP_LINK_LIBRARY(lib.name);
+    }
 
     // add system libraries.
     for(auto sysLib : proj.sysLibs)
@@ -651,6 +806,9 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
         {
             LLOG(RED_TEXT("[YMAKE BUILD]: "), "error building library: ", CYAN_TEXT(lib.name), "\n\t", err.what(),
                  "\n");
+
+            LLOG(RED_TEXT("EXITING....\n"));
+            return;
         }
     }
 
@@ -682,12 +840,14 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
     {
         try
         {
-            string compiledFile = CompileFile(proj, file.c_str(), cacheDir.c_str(), mode, proj.buildType);
+            string compiledFile = CompileFile(proj, file.c_str(), cacheDir.c_str(), mode, proj.buildType, true);
             compiledFiles.push_back(compiledFile);
         }
         catch(Y::Error &err)
         {
             LLOG(RED_TEXT("[YMAKE BUILD]: "), "error building file: ", CYAN_TEXT(file), "\n\t", err.what(), "\n");
+            LLOG(RED_TEXT("EXITING....\n"));
+            return;
         }
 
         percent += filePercent;
@@ -710,10 +870,14 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
     {
         LLOG(RED_TEXT("[YMAKE BUILD ERROR]: "), "error linking project: ", CYAN_TEXT(proj.name), "\n\t", err.what(),
              "\n");
+        LLOG(RED_TEXT("EXITING...\n"));
+        return;
     }
     catch(...)
     {
         LLOG(RED_TEXT("[YMAKE BUILD ERROR]: "), "error linking project: ", CYAN_TEXT(proj.name), "\n");
+        LLOG(RED_TEXT("EXITING..."));
+        return;
     }
 
     // get final build time

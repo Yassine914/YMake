@@ -4,22 +4,23 @@ libtest
 ./bin
 14
 0
-clang++
+gcc
 
 ./src
 
 1
 1
-3
+2
 ./src
 ./include
-./libs/DEngine/include
 1
 DEngine
 G:\Projects\Dev\YMake\YMakeTests\libTest/lib/DEngine/src
-2
+1
+./lib/DEngine/include
 0
-3
+4
+stdc++
 opengl32
 gdi32
 winmm

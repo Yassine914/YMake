@@ -4,7 +4,7 @@
 lang = "C++"
 
 cpp.std = 14
-cpp.compiler = "clang++"
+cpp.compiler = "gcc"
 
 build.type = "executable"
 build.dir = "./bin"
@@ -17,10 +17,11 @@ includes = [
 ]
 
 libs.src = [
-    {name = "DEngine", path = "$(YM_CURRENT_DIR)/lib/DEngine/src", include = "./libs/DEngine/include", type = "static"}
+    {name = "DEngine", path = "$(YM_CURRENT_DIR)/lib/DEngine/src", include = "./lib/DEngine/include", type = "shared"}
 ]
 
 libs.sys = [
+    "stdc++",
     "opengl32",
     "gdi32",
     "winmm",
