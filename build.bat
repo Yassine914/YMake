@@ -80,8 +80,7 @@ echo.
 popd
 
 echo compiling source code...
-
-set compilerFlags=-g -Wvarargs -Wall -Werror -std=c++17
+set compilerFlags=-g -Wvarargs -Wall -Werror -std=c++17 -pthread
 set includeFlags=-I./lib/tomlplusplus/include -I./src
 rem -I./thirdparty/include/
 
