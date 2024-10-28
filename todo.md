@@ -4,17 +4,13 @@
 
 ## TODO
 
-### PRIORITY: pretty stupid mistake. the include dir of a library.src is put in a pool of all includes.
-###         this means that a library will try to include itself when building it... (amazing code)
-### SOLUTION: put an extra attrib per lib for the include flag. (it's refactoring time.... (who's excited? not me))
+- [x] add multithreading to project's src
+    <!-- - MT should be added to compiling source files. -->
+    <!-- - maybe make the no. of threads user specified?? (need to look into it). -->
 
-- [ ] add multithreading to project's src
-    - MT should be added to compiling source files.
-    - maybe make the no. of threads user specified?? (need to look into it).
-
-- [ ] add progress bar to compilation.
-    - along with compile time estimate and compile time at the end
-    - check all source files to be compiled. [% per file = 100 / fileno].
+- [x] add progress bar to compilation.
+    <!-- - along with compile time estimate and compile time at the end -->
+    <!-- - check all source files to be compiled. [% per file = 100 / fileno]. -->
 
 - [ ] update default config
 

@@ -19,9 +19,9 @@ string Basepath(string fullpath)
     return path.parent_path().string();
 }
 
-std::string ToLower(const std::string &str)
+string ToLower(const string &str)
 {
-    std::string lower_str = "";
+    string lower_str = "";
     for(auto const &ch : str)
         lower_str += std::tolower(ch);
 
@@ -51,15 +51,15 @@ Compiler WhatCompiler(const string &compiler)
 
 string GetHashedFileNameFromPath(const string &file)
 {
-    std::hash<std::string> hasher;
+    std::hash<string> hasher;
     usize hashValue = hasher(file);
     return Basename(file) + "_" + std::to_string(hashValue);
 }
 
 FileType GetFileType(const string &filepath)
 {
-    std::string path(filepath);
-    std::string extension = ToLower(fs::path(path).extension().string());
+    string path(filepath);
+    string extension = ToLower(fs::path(path).extension().string());
 
     if(extension == ".c")
         return FileType::C;
@@ -774,6 +774,132 @@ string LinkEverything(Project &proj, vector<string> compiledFiles, vector<Librar
     return outname;
 }
 
+bool NeedsRecompiling(const Project &proj, const string &filePath)
+{
+    string cacheDir = string(YMAKE_CACHE_DIR) + "/" + proj.name;
+
+    string filepath = Cache::ToAbsolutePath(filePath);
+    LTRACE(true, "checking if file \'", filepath, "\' needs re-compiling...\n");
+
+    // load cache.
+    std::unordered_map<string, Cache::FileMetadata> cacheReg;
+    try
+    {
+        cacheReg = Cache::LoadMetadataCache(string(cacheDir.c_str()) + "/" + YMAKE_METADATA_CACHE_FILENAME);
+    }
+    catch(Y::Error &err)
+    {
+        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't load cache from cache directory.\n\t", err.what(), "\n");
+        exit(1);
+    }
+
+    LTRACE(true, "files found in metadata.cache for proj: ", proj.name, ", are: \n");
+    for(auto &[k, v] : cacheReg)
+    {
+        LTRACE(true, "entry => k: ", k, "\tv: ", v.fileSize, "\n");
+    }
+
+    // if file doesn't exist in cache reg -> recompile
+    if(cacheReg.count(filepath) == 0)
+    {
+        // update cache.
+        LTRACE(true, "file is not in the cache registry -> it needs recompiling.\n");
+        Cache::UpdateMetadataCache(filepath, cacheDir.c_str());
+
+        string preFile = Cache::PreprocessUnit(proj, filepath, cacheDir.c_str());
+        Cache::UpdatePreprocessedCache(preFile.c_str(), cacheDir.c_str());
+
+        return true; // it needs recompiling.
+    }
+
+    if(cacheReg[filepath.c_str()].fileSize != Cache::GetFileSize(filepath.c_str()))
+    {
+        LTRACE(true, "file is in the cache registry. and file size has changed. recompiling.\n");
+        Cache::UpdateMetadataCache(filepath, cacheDir.c_str());
+
+        string preFile = Cache::PreprocessUnit(proj, filepath, cacheDir.c_str());
+        Cache::UpdatePreprocessedCache(preFile.c_str(), cacheDir.c_str());
+
+        return true; // it needs recompiling.
+    }
+    else if(cacheReg[filepath.c_str()].lastWriteTime != Cache::GetTimeSinceLastWrite(filepath.c_str()))
+    {
+        LTRACE(true, "file is in the cache registry. and file size has changed. recompiling.\n");
+        Cache::UpdateMetadataCache(filepath, cacheDir.c_str());
+
+        string preFile = Cache::PreprocessUnit(proj, filepath, cacheDir.c_str());
+        Cache::UpdatePreprocessedCache(preFile.c_str(), cacheDir.c_str());
+
+        return true; // it needs recompiling.
+    }
+
+    LTRACE(true, "file is in the cache registry, but it is unchanged.\n");
+    return false;
+}
+
+/*
+if(cleanBuild || !Cache::DirExists(projectCacheDir.c_str()) || mode == BuildMode::RELEASE)
+    {
+        LTRACE(true, "cache doesn't exist. performing a clean build.\n");
+
+        // remove old cache.
+        if(!Cache::RemoveAllMetadataCache())
+            throw Y::Error("couldn't remove projects cache files.");
+
+        // build libs.
+        std::vector<Library> compiledLibs;
+        for(auto lib : proj.libs)
+        {
+            Library compiledLib = BuildLibrary(proj, lib, proj.buildDir.c_str());
+
+            compiledLibs.push_back(compiledLib);
+        }
+
+        Cache::CreateDir(projectCacheDir.c_str());
+
+        // build project.
+        // compile source files.
+        for(const auto &file : files)
+        {
+            translationUnits.push_back(CompileUnit(proj, mode, file.c_str(), projectCacheDir.c_str()));
+        }
+
+        try
+        {
+            // regen cache for .cpp files.
+            Cache::CreateMetadataCache(files, projectCacheDir.c_str());
+
+            // gen cache for .i files.
+            std::vector<std::string> preprocessedFiles =
+                GeneratePreprocessedFiles(proj, files, projectCacheDir.c_str());
+
+            for(auto file : preprocessedFiles)
+            {
+                LTRACE(true, "generated file at: ", file, "\n");
+            }
+        }
+        catch(Y::Error &err)
+        {
+            LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't generate cache data for project: ", proj.name, "\n");
+        }
+
+        // take the list of obj files and link them all...
+        try
+        {
+            LinkAll(proj, translationUnits, compiledLibs);
+        }
+        catch(Y::Error &err)
+        {
+            LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't link files and libraries for project: ", proj.name, "\n");
+            exit(1);
+        }
+
+        LLOG(GREEN_TEXT("[YMAKE BUILD]: "), "successfully built project \'", proj.name, "\', binary at dir: \'",
+             proj.buildDir, "\n");
+
+        exit(0);
+    }
+*/
 void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
 {
     LLOG(BLUE_TEXT("[YMAKE BUILD]: "), "building project: ", CYAN_TEXT(proj.name), "...\n");
@@ -789,10 +915,20 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
     f32 percent = 0.0f;
 
     // FIXME: let's do a clean build and then worry about the caching later.
+    string projCacheDir = string(YMAKE_CACHE_DIR) + "/" + proj.name;
+    if(cleanBuild || !Cache::DirExists(projCacheDir.c_str()) || mode == BuildMode::RELEASE)
+    {
+        // TODO: build libs.
+    }
+    else
+    {
+        // TODO: return built libs' path.
+    }
 
     //_____________________ BUILDING LIBRARIES ____________________
     f32 percentPerPart = 100.0f / (proj.libs.size() + 1);
 
+    // TODO: cache compiled libraries to a file and load them into the vector instead if !cleanBuild.
     vector<Library> compiledLibs;
     for(auto lib : proj.libs)
     {
@@ -815,14 +951,13 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
     //_____________________ BUILDING PROJECT SRC ____________________
     // build project files.
     // build project files -> returns list of .o files.
-    vector<string> files = Cache::GetSrcFilesRecursive(proj.src);
-    LTRACE(true, "project files: ", files.size(), "\n");
-    for(auto file : files)
-    {
-        LTRACE(true, "\tFILE: ", file, "\n");
-    }
+    vector<string> allFiles = Cache::GetSrcFilesRecursive(proj.src);
 
-    string projCacheDir = string(YMAKE_CACHE_DIR) + "/" + proj.name;
+    // percentage calculation.
+    f32 filePercent_f = 100.0f / allFiles.size();
+    filePercent_f *= (percentPerPart / 100.0f);
+    i32 filePercent = static_cast<i32>(filePercent_f);
+
     if(!Cache::DirExists(projCacheDir.c_str()))
         Cache::CreateDir(projCacheDir.c_str());
 
@@ -830,34 +965,70 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
     if(!Cache::DirExists(cacheDir.c_str()))
         Cache::CreateDir(cacheDir.c_str());
 
-    // percentage calculation.
-    f32 filePercent_f = 100.0f / files.size();
-    filePercent_f *= (percentPerPart / 100.0f);
-    i32 filePercent = static_cast<i32>(filePercent_f);
-
     vector<string> compiledFiles;
-    for(auto file : files)
+    vector<string> files;
+    for(auto file : allFiles)
     {
-        try
+        if(NeedsRecompiling(proj, file))
         {
-            string compiledFile = CompileFile(proj, file.c_str(), cacheDir.c_str(), mode, proj.buildType, true);
-            compiledFiles.push_back(compiledFile);
+            files.push_back(file);
         }
-        catch(Y::Error &err)
+        else
         {
-            LLOG(RED_TEXT("[YMAKE BUILD]: "), "error building file: ", CYAN_TEXT(file), "\n\t", err.what(), "\n");
-            LLOG(RED_TEXT("EXITING....\n"));
-            return;
+            percent += filePercent;
+            if(percent == 99)
+                percent = 100;
+
+            string hashedName = GetHashedFileNameFromPath(file);
+            compiledFiles.push_back(projCacheDir + "/" + hashedName);
         }
-
-        percent += filePercent;
-        if(percent == 99)
-            percent = 100;
-
-        LLOG(GREEN_TEXT("[YMAKE BUILD]: "), BLUE_TEXT("[", percent, "%] "), "built file: ", CYAN_TEXT(file), "\n");
     }
 
+    LTRACE(true, "project files: ", allFiles.size(), "\n");
+    for(auto file : allFiles)
+    {
+        LTRACE(true, "\tFILE: ", file, "\n");
+    }
+
+    LTRACE(ture, "files to recompile: ", files.size(), "\n");
+    for(auto file : files)
+    {
+        LTRACE(ture, "\tFILE: ", file, "\n");
+    }
+
+    // TODO: output the number as float (2 digits after point.)
+
+    ThreadPool threadPool;
+    for(auto file : files)
+    {
+        threadPool.AddTask([&proj, file, cacheDir, mode, &compiledFiles, &percent, &threadPool] {
+            try
+            {
+                string compiledFile = CompileFile(proj, file.c_str(), cacheDir.c_str(), mode, proj.buildType, true);
+                compiledFiles.push_back(compiledFile);
+            }
+            catch(Y::Error &err)
+            {
+                LLOG(RED_TEXT("[YMAKE BUILD]: "), "error building file: ", CYAN_TEXT(file), "\n\t", err.what(), "\n");
+                LLOG(RED_TEXT("EXITING....\n"));
+                return;
+            }
+
+            threadPool.Lock();
+            percent += filePercent;
+            if(percent == 99)
+                percent = 100;
+
+            LLOG(GREEN_TEXT("[YMAKE BUILD]: "), BLUE_TEXT("[", percent, "%] "), "built file: ", CYAN_TEXT(file), "\n");
+            threadPool.Unlock();
+        });
+    }
+
+    threadPool.JoinAll();
+
     //____________________ LINK ALL ___________________
+    // TODO: use docker etc... to link if in release mode.
+    // TODO: get the target of the debug build (for fixing clang errors).
     LLOG(BLUE_TEXT("[YMAKE BUILD]: "), "linking project: ", CYAN_TEXT(proj.name), "...\n")
 
     string outfile;

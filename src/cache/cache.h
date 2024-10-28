@@ -60,4 +60,17 @@ std::vector<std::string> GetSrcFilesRecursive(const std::string &dirPath);
 std::vector<std::string> GetFilesWithExt(const std::string &path, const std::string &ext);
 bool RemoveAllMetadataCache();
 
+//_______________________________ PREPROCESSED/SRC_FILE CACHE ____________________
+
+std::string PreprocessUnit(const Project &proj, const std::string &file, const std::string &path);
+
+void CreatePreprocessedCache(const std::vector<std::string> &files, const char *projCacheDir);
+
+void UpdatePreprocessedCache(const std::string &file, const char *projCacheDir);
+
+std::map<std::string, u64> LoadPreprocessedCache(const char *projCacheDir);
+
+std::vector<std::string> GeneratePreprocessedFiles(const Project &proj, const std::vector<std::string> &files,
+                                                   const char *path);
+
 } // namespace Y::Cache

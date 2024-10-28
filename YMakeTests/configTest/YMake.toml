@@ -36,7 +36,6 @@ libs.sys = [
     "winmm",
 ]
 
-
 [Default.compiler]
 
 # compiler optimization: 0 -> no optimization. 3 -> O3 optimization (max)

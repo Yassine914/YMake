@@ -18,7 +18,16 @@ using std::thread;
 using std::unique_lock;
 using std::vector;
 
-#define MAX_THREADS 4
+// get max number of threads based on hardware concurrency
+inline usize GetMaxThreads()
+{
+    usize maxThreads = std::thread::hardware_concurrency();
+    if(maxThreads == 0) // returns 0 if not well defined.
+    {
+        maxThreads = 2; // Fallback to 2 threads if hardware concurrency is not defined
+    }
+    return maxThreads;
+}
 
 namespace Y {
 
@@ -39,6 +48,7 @@ class ThreadPool
     public:
     ThreadPool() : stop(false)
     {
+        const usize MAX_THREADS = GetMaxThreads();
         for(size_t i = 0; i < MAX_THREADS; ++i)
         {
             workers.emplace_back([this] {
