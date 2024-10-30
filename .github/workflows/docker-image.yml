@@ -1,0 +1,65 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # This triggers the workflow when a new tag is pushed
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            ext: ".tar.gz"
+            build: "make"
+          - os: windows-latest
+            ext: ".zip"
+            build: "build_release.bat"
+          - os: macos-latest
+            ext: ".tar.gz"
+            build: "make"
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build and push
+      run: |
+        docker build --platform ${{ matrix.os }} -t ymake:latest .
+        docker save ymake:latest -o release-${{ matrix.os }}${{ matrix.ext }}
+
+    - name: Upload Release Asset
+      uses: actions/upload-artifact@v2
+      with:
+        name: release-${{ matrix.os }}${{ matrix.ext }}
+        path: release-${{ matrix.os }}${{ matrix.ext }}
+
+  create_release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+        files: |
+          ymake-release-ubuntu-latest.tar.gz
+          ymake-release-windows-latest.zip
+          ymake-release-macos-latest.tar.gz
