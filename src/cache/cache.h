@@ -62,6 +62,30 @@ bool RemoveAllMetadataCache();
 
 //_______________________________ PREPROCESSED/SRC_FILE CACHE ____________________
 
+enum class Compiler
+{
+    NONE = 0,
+    UNKOWN,
+    GCC,
+    CLANG,
+    ICC,
+    MSVC,
+};
+
+enum class FileType
+{
+    NONE = 0,
+    UNKOWN,
+    C,
+    CPP,
+    HEADER,
+    INTERMEDIARY,
+    OBJ,
+};
+
+Compiler WhatCompiler(const std::string &compiler);
+FileType GetFileType(const std::string &filepath);
+
 std::string PreprocessUnit(const Project &proj, const std::string &file, const std::string &path);
 
 void CreatePreprocessedCache(const std::vector<std::string> &files, const char *projCacheDir);

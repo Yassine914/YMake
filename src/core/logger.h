@@ -278,7 +278,7 @@ class Logger
         auto inTime = system_clock::to_time_t(now);
 
         std::tm buf;
-        localtime_s(&buf, &inTime);
+        localtime_r(&inTime, &buf);
 
         std::stringstream ss;
         ss << std::put_time(&buf, "%X");

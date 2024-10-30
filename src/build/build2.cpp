@@ -19,65 +19,11 @@ string Basepath(string fullpath)
     return path.parent_path().string();
 }
 
-string ToLower(const string &str)
-{
-    string lower_str = "";
-    for(auto const &ch : str)
-        lower_str += std::tolower(ch);
-
-    return lower_str;
-}
-
-Compiler WhatCompiler(const string &compiler)
-{
-    std::string comp = ToLower(compiler);
-    if(comp == "clang" || comp == "clang++")
-        return Compiler::CLANG;
-
-    if(comp == "icc" || comp == "intel c++")
-        return Compiler::ICC;
-
-    if(comp == "gcc" || comp == "gnu" || comp == "g++" || comp == "gnu gcc")
-        return Compiler::GCC;
-
-    if(comp == "cl" || comp == "msvc" || comp == "cl++")
-        return Compiler::MSVC;
-
-    if(comp == "" || comp.empty())
-        return Compiler::NONE;
-
-    return Compiler::UNKOWN;
-}
-
 string GetHashedFileNameFromPath(const string &file)
 {
     std::hash<string> hasher;
     usize hashValue = hasher(file);
     return Basename(file) + "_" + std::to_string(hashValue);
-}
-
-FileType GetFileType(const string &filepath)
-{
-    string path(filepath);
-    string extension = ToLower(fs::path(path).extension().string());
-
-    if(extension == ".c")
-        return FileType::C;
-
-    if(extension == ".cpp" || extension == ".cxx" || extension == ".cc" || extension == ".c++" || extension == ".cp" ||
-       extension == ".cxx" || extension == ".tpp")
-        return FileType::CPP;
-
-    if(extension == ".h" || extension == ".hpp" || extension == ".hxx" || extension == ".h++" || extension == ".hh")
-        return FileType::HEADER;
-
-    if(extension == ".o" || extension == ".obj")
-        return FileType::OBJ;
-
-    if(extension == ".i")
-        return FileType::INTERMEDIARY;
-
-    return FileType::UNKOWN;
 }
 
 // path/to/file.c -> outDir/file_HASH.o
@@ -990,10 +936,10 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
         LTRACE(true, "\tFILE: ", file, "\n");
     }
 
-    LTRACE(ture, "files to recompile: ", files.size(), "\n");
+    LTRACE(true, "files to recompile: ", files.size(), "\n");
     for(auto file : files)
     {
-        LTRACE(ture, "\tFILE: ", file, "\n");
+        LTRACE(true, "\tFILE: ", file, "\n");
     }
 
     // TODO: output the number as float (2 digits after point.)
@@ -1001,7 +947,7 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
     ThreadPool threadPool;
     for(auto file : files)
     {
-        threadPool.AddTask([&proj, file, cacheDir, mode, &compiledFiles, &percent, &threadPool] {
+        threadPool.AddTask([&proj, file, cacheDir, mode, &compiledFiles, &percent, &filePercent, &threadPool] {
             try
             {
                 string compiledFile = CompileFile(proj, file.c_str(), cacheDir.c_str(), mode, proj.buildType, true);

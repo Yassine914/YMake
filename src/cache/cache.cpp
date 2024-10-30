@@ -6,6 +6,8 @@ namespace fs = std::filesystem;
 #include <chrono>
 using namespace std::chrono;
 using namespace std::chrono_literals;
+using fs::path;
+using std::string;
 
 #include <sstream>
 #include <vector>
@@ -16,6 +18,14 @@ using namespace std::chrono_literals;
 namespace Y::Cache {
 
 // PROJECT METADATA
+string ToLower(const string &str)
+{
+    string lower_str = "";
+    for(auto const &ch : str)
+        lower_str += std::tolower(ch);
+
+    return lower_str;
+}
 
 void CreateDir(const char *path)
 {
@@ -68,7 +78,7 @@ std::time_t ToTimeT(const std::string &time)
 std::string ToString(std::time_t time)
 {
     std::tm tm;
-    localtime_s(&tm, &time); // Use localtime_s for local time
+    localtime_r(&time, &tm); // Use localtime_s for local time
     std::ostringstream oss;
     oss << std::put_time(&tm, "%Y-%m-%d:%H-%M-%S");
     return oss.str();
@@ -610,6 +620,51 @@ std::vector<std::string> GetFilesWithExt(const std::string &path, const std::str
 }
 
 //_______________________________ PREPROCESSED/SRC_FILE CACHE ____________________
+
+Compiler WhatCompiler(const string &compiler)
+{
+    std::string comp = ToLower(compiler);
+    if(comp == "clang" || comp == "clang++")
+        return Compiler::CLANG;
+
+    if(comp == "icc" || comp == "intel c++")
+        return Compiler::ICC;
+
+    if(comp == "gcc" || comp == "gnu" || comp == "g++" || comp == "gnu gcc")
+        return Compiler::GCC;
+
+    if(comp == "cl" || comp == "msvc" || comp == "cl++")
+        return Compiler::MSVC;
+
+    if(comp == "" || comp.empty())
+        return Compiler::NONE;
+
+    return Compiler::UNKOWN;
+}
+
+FileType GetFileType(const string &filepath)
+{
+    string path(filepath);
+    string extension = ToLower(fs::path(path).extension().string());
+
+    if(extension == ".c")
+        return FileType::C;
+
+    if(extension == ".cpp" || extension == ".cxx" || extension == ".cc" || extension == ".c++" || extension == ".cp" ||
+       extension == ".cxx" || extension == ".tpp")
+        return FileType::CPP;
+
+    if(extension == ".h" || extension == ".hpp" || extension == ".hxx" || extension == ".h++" || extension == ".hh")
+        return FileType::HEADER;
+
+    if(extension == ".o" || extension == ".obj")
+        return FileType::OBJ;
+
+    if(extension == ".i")
+        return FileType::INTERMEDIARY;
+
+    return FileType::UNKOWN;
+}
 
 // takes a /path/to/base.c -> /new/path/base.i
 std::string PreprocessUnit(const Project &proj, const std::string &file, const std::string &path)

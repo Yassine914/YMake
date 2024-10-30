@@ -12,6 +12,9 @@
     <!-- - along with compile time estimate and compile time at the end -->
     <!-- - check all source files to be compiled. [% per file = 100 / fileno]. -->
 
+- [ ] update parsing
+    - [ ] add workflow with target arch and target architecture for project.
+
 - [ ] update default config
 
 - [ ] add new YMake Command: new --type [exe, shared, static]
