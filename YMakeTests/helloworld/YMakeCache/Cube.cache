@@ -1,5 +1,5 @@
 cube
-0.0.1
+0.1.0
 0
 ./build
 14
@@ -7,25 +7,17 @@ cube
 clang++
 
 ./src
-
+./.env
 1
 1
 1
 ./src
 0
 0
-3
-opengl32
-gdi32
-winmm
-1
-DNDEBUG
-2
-DDEBUG
-DTEST=1
+0
+0
+0
 0
 3
-2
--Wall
--g
+0
 0

@@ -1,6 +1,10 @@
 # PROJECT: cube
+
 [cube]
+
 lang = "C++"
+
+version = "0.1.0"
 
 cpp.std = 14
 cpp.compiler = "clang++"
@@ -11,21 +15,52 @@ build.dir = "./build"
 src = "./src"
 env = "./.env"
 
-[cube.compiler]
-
-debug.optimization = 0
-debug.defines = [
-    "YMAKE_DEBUG",
-    "YMAKE_TEST=1"
+includes = [
+    "./src"
 ]
 
-# compiler flags.
-debug.flags = [
-    "-Wall",
-    "-g"
-]
+# replace with the libraries that need compiling.
+# libs.src = [
+#     {name = "GLFW", path = "./thirdparty/GLFW/src", include = "./thirdparty/GLFW/include", type = "static"}
+# ]
 
-release.optimization = 3
-release.defines = [
-    "DNDEBUG",
-]
+# # pre-built libraries.
+# libs.built = [
+#     "$(YM_CURRENT_DIR)/bin/glm.a",
+#     "$(VK_PATH)/bin/Vulkan.dll"
+# ]
+
+# # libs that don't need a path. (aka: known by the compiler)
+# libs.sys = [
+#     "opengl32",
+#     "gdi32",
+#     "winmm",
+# ]
+
+
+# [cube.compiler]
+
+# # compiler optimization: 0 -> no optimization. 3 -> O3 optimization (max)
+# debug.optimization = 0
+
+# debug.defines = [
+#     "DDEBUG",
+#     "DTEST=1"
+# ]
+
+# # compiler flags.
+# debug.flags = [
+#     "-Wall",
+#     "-Wargs",
+#     "-g"
+# ]
+
+# release.optimization = 3
+
+# release.defines = [
+#     "DNDEBUG",
+# ]
+
+# release.flags = [
+#     "-Wno-unused-variable",
+# ]

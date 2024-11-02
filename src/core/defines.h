@@ -4,7 +4,7 @@
 // project specific
 #define YMAKE_VERSION_MAJOR 0
 #define YMAKE_VERSION_MINOR 2
-#define YMAKE_VERSION_PATCH 1
+#define YMAKE_VERSION_PATCH 2
 
 #define YMAKE_DEFAULT_FILE "YMake.toml"
 #define YMAKE_CACHE_DIR    "./YMakeCache"

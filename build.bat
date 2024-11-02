@@ -2,7 +2,7 @@
 SetLocal EnableDelayedExpansion
 
 set outputAssembly=ymake
-set compiler=clang++
+set compiler=g++
 
 echo ------------------------------
 echo C++ build script for %outputAssembly%

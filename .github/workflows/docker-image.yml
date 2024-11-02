@@ -59,7 +59,33 @@ jobs:
         release_name: Release ${{ github.ref }}
         draft: false
         prerelease: false
-        files: |
-          ymake-release-ubuntu-latest.tar.gz
-          ymake-release-windows-latest.zip
-          ymake-release-macos-latest.tar.gz
+
+    - name: Upload Release Asset (Ubuntu)
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ymake-release-ubuntu-latest.tar.gz
+        asset_name: ymake-release-ubuntu-latest.tar.gz
+        asset_content_type: application/gzip
+
+    - name: Upload Release Asset (Windows)
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ymake-release-windows-latest.zip
+        asset_name: ymake-release-windows-latest.zip
+        asset_content_type: application/zip
+
+    - name: Upload Release Asset (macOS)
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ymake-release-macos-latest.tar.gz
+        asset_name: ymake-release-macos-latest.tar.gz
+        asset_content_type: application/gzip
