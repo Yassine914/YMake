@@ -3,6 +3,9 @@ SetLocal EnableDelayedExpansion
 
 set outputAssembly=ymake
 set compiler=g++
+rem set target=-target x86_64-pc-windows-gnu 
+set compilerFlags=-g -Wvarargs -Wall -Werror -std=c++17 -pthread
+set includeFlags=-I./lib/tomlplusplus/include -I./src
 
 echo ------------------------------
 echo C++ build script for %outputAssembly%
@@ -80,11 +83,10 @@ echo.
 popd
 
 echo compiling source code...
-set compilerFlags=-g -Wvarargs -Wall -Werror -std=c++17 -pthread
-set includeFlags=-I./lib/tomlplusplus/include -I./src
+
 rem -I./thirdparty/include/
 
-%compiler% %cppFiles% %compilerFlags% %includeFlags% %defines% -o bin/%outputAssembly%.exe
+%compiler% %target% %cppFiles% %compilerFlags% %includeFlags% %defines% -o bin/%outputAssembly%.exe
 
 echo linking...
 
@@ -94,82 +96,6 @@ if %ERRORLEVEL% equ 0 (
 ) else (
     echo compilation/linking failed.
     exit
-)
-
-exit
-
-echo ---------------------------------------------------------- EOF for now....
-
-for %%f in (%cppFiles%) do (
-    set dir=%%~dpf
-    set dir=!dir:~%length%!
-    set dir=!dir:~%lenSrc%!
-    set dir=!dir:~1!
-    set dir=%objDir%\!dir!
-
-    if not exist !dir! mkdir !dir!
-
-    set file=%%f
-    set objFile=%%~dpf%%~nf.o
-    set objFile=!objFile:~%length%!
-    set objFile=!objFile:~%lenSrc%!
-    set objFile=%objDir%/!objFile:~1!
-
-    clang++ %%f -o %compilerFlags% %includeFlags% %defines%
-)
-
-echo linking...
-
-rem Check if the compilation was successful
-if %ERRORLEVEL% equ 0 (
-    echo compilation/linking successful.
-) else (
-    echo compilation/linking failed.
-    exit
-)
-
-echo ----------------------------
-echo.
-
-echo linking...
-echo.
-
-set objFiles=
-
-pushd %objDir%
-
-for /r %%f in (*.o) do (
-    set filepath=%%~f
-    set "objFiles=!objFiles! !filepath:~%length%!"
-)
-
-if defined objFiles set objFiles=!objFiles:~1!
-
-echo Translation units to link =^>
-
-for %%i in (%objFiles%) do (
-    rem trick to sleep for milliseconds
-    ping 127.0.0.1 -n 1 -w 100 > nul
-    echo %%i
-)
-echo ----------------------------
-
-popd
-
-rem SET THESE FLAGS FOR EXTERNAL DEPENDECIES
-set staticLibs=
-set dynamicLibs=
-
-set linkerFlags=-
-set linkingLibs=
-
-clang++ -x c++ %objFiles% -o ./bin/%outputAssembly%.exe %linkerFlags% %staticLibs% %dynamicLibs% %linkingLibs%
-
-rem Check if the compilation was successful
-if %ERRORLEVEL% equ 0 (
-    echo compilation successful: %OUTPUT%
-) else (
-    echo compilation/linking failed.
 )
 
 exit

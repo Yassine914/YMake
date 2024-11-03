@@ -338,7 +338,7 @@ void BuildProjects(std::vector<std::string> &input, std::map<std::string, std::s
 
     if(projectsToBuild.size() == 0)
     {
-        LLOG(GREEN_TEXT("[YMAKE]: "), "building all projects...\n", BLUE_TEXT("\tProjects to build: "));
+        LLOG(GREEN_TEXT("[YMAKE]: "), "building all projects...\n", BLUE_TEXT("\tProjects to build: \n"));
 
         for(Project proj : allProjects)
         {

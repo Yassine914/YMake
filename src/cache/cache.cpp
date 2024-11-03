@@ -671,6 +671,25 @@ FileType GetFileType(const string &filepath)
     return FileType::UNKOWN;
 }
 
+string Basename(string fullpath)
+{
+    fs::path path(fullpath);
+    return path.stem().string();
+}
+
+string Basepath(string fullpath)
+{
+    fs::path path(fullpath);
+    return path.parent_path().string();
+}
+
+string GetHashedFileNameFromPath(const string &file)
+{
+    std::hash<string> hasher;
+    usize hashValue = hasher(file);
+    return Basename(file) + "_" + std::to_string(hashValue);
+}
+
 // takes a /path/to/base.c -> /new/path/base.i
 std::string PreprocessUnit(const Project &proj, const std::string &file, const std::string &path)
 {
@@ -697,13 +716,13 @@ std::string PreprocessUnit(const Project &proj, const std::string &file, const s
 
     // output file.
     fs::path inputPath(file);
-    fs::path outputPath = Cache::ConcatenatePath(path, inputPath.stem().string());
+
+    std::string outputPath = Basepath(file) + "/" + GetHashedFileNameFromPath(file);
     outputPath += std::string(".i");
 
-    LTRACE(true, "about to create preprocessed cache at: ", outputPath.string(), "\n");
+    LTRACE(true, "about to create preprocessed cache at: ", outputPath, "\n");
 
-    command += (compiler == Compiler::MSVC) ? COMP_MSVC_OUTPUT_FILE(outputPath.string())
-                                            : COMP_OUTPUT_FILE(outputPath.string());
+    command += (compiler == Compiler::MSVC) ? COMP_MSVC_OUTPUT_FILE(outputPath) : COMP_OUTPUT_FILE(outputPath);
 
     // add includes
     for(auto include : proj.includeDirs)
@@ -717,7 +736,7 @@ std::string PreprocessUnit(const Project &proj, const std::string &file, const s
     LASSERT(result == 0, RED_TEXT("[YMAKE COMPILE ERROR]: "), "failed to compile source file: ", file, "\n\t",
             "exit code: ", result, "\n");
 
-    return outputPath.string();
+    return outputPath;
 }
 
 void CreatePreprocessedCache(const std::vector<std::string> &files, const char *projCacheDir)

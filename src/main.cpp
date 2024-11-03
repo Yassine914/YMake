@@ -70,9 +70,9 @@ int main(int argc, char **argv)
 
     try
     {
-        LLOG(YELLOW_TEXT("[YMAKE]: "), "calling the function for command: ", cmdInfo.cmd.name, "\n");
+        // LLOG(YELLOW_TEXT("[YMAKE]: "), "calling the function for command: ", cmdInfo.cmd.name, "\n");
         cmdInfo.CallFunction();
-        LLOG(YELLOW_TEXT("[YMAKE]: "), "called the function for command: ", cmdInfo.cmd.name, "\n");
+        // LLOG(YELLOW_TEXT("[YMAKE]: "), "called the function for command: ", cmdInfo.cmd.name, "\n");
     }
     catch(Y::Error &err)
     {

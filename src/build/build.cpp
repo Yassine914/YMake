@@ -339,7 +339,7 @@ string LinkDynamicLibrary(Project &proj, Library &lib, vector<string> compiledFi
         return outname;
     }
 
-    // windows specific.
+    // windows specific. (eff Microsoft...)
 
     // compile the .lib file.
     bool gendefAvailable   = IsToolAvailable("gendef");
@@ -522,7 +522,8 @@ Library BuildLibrary(Project &proj, Library &lib, const char *buildDir, f32 libP
     vector<string> compiledFiles;
     for(auto file : files)
     {
-        threadPool.AddTask([&proj, file, cacheDir, &compiledFiles, &percent, filePercent, &threadPool, &lib] {
+        threadPool.AddTask([&proj, file, cacheDir, &compiledFiles, &percent, filePercent, filePercent_decimal,
+                            &threadPool, &lib] {
             try
             {
                 // always compile library files in release mode.
@@ -543,11 +544,15 @@ Library BuildLibrary(Project &proj, Library &lib, const char *buildDir, f32 libP
                 percent = 100.0f;
 
             if(filePercent_decimal > 0)
+            {
                 LLOG(GREEN_TEXT("[YMAKE BUILD]: "), BLUE_TEXT("[", (i32)percent, ".", filePercent_decimal, "%] "),
                      "built file: ", CYAN_TEXT(file), "\n");
+            }
             else
+            {
                 LLOG(GREEN_TEXT("[YMAKE BUILD]: "), BLUE_TEXT("[", (i32)percent, "%] "),
                      "built file: ", CYAN_TEXT(file), "\n");
+            }
 
             threadPool.Unlock();
         });
@@ -592,7 +597,7 @@ Library BuildLibrary(Project &proj, Library &lib, const char *buildDir, f32 libP
 // LinkEverything(proj, compiledFiles, compiledLibs);
 string LinkEverything(Project &proj, vector<string> compiledFiles, vector<Library> compiledLibs, BuildMode mode)
 {
-    LLOG(BLUE_TEXT("[YMAKE BUILD]: "), "linking project: ", CYAN_TEXT(proj.name), "...\n");
+    // LLOG(BLUE_TEXT("[YMAKE BUILD]: "), "linking project: ", CYAN_TEXT(proj.name), "...\n");
 
     // get compiler.
     Compiler compiler = Compiler::NONE;
@@ -658,7 +663,7 @@ string LinkEverything(Project &proj, vector<string> compiledFiles, vector<Librar
 
         // add output file.
 
-        // executable
+        // executable TODO: replace with macros from defines.h
 #if defined(IPLATFORM_WINDOWS)
     std::string libExecutableExt = ".exe";
 #elif defined(IPLATFORM_MACOS)
@@ -738,7 +743,7 @@ bool NeedsRecompiling(const Project &proj, const string &filePath)
     LTRACE(true, "checking if file \'", filepath, "\' needs re-compiling...\n");
 
     // load cache.
-    std::unordered_map<string, u64> cacheReg;
+    std::unordered_map<string, Cache::FileMetadata> cacheReg;
     try
     {
         cacheReg = Cache::LoadMetadataCache(string(cacheDir.c_str()) + "/" + YMAKE_METADATA_CACHE_FILENAME);
@@ -768,7 +773,7 @@ bool NeedsRecompiling(const Project &proj, const string &filePath)
         return true; // it needs recompiling.
     }
 
-    if(cacheReg[filepath.c_str()] != Cache::GetFileSize(filepath.c_str()))
+    if(cacheReg[filepath.c_str()].fileSize != Cache::GetFileSize(filepath.c_str()))
     {
         LTRACE(true, "file is in the cache registry. and file size has changed. recompiling.\n");
         Cache::UpdateMetadataCache(filepath, cacheDir.c_str());
@@ -778,6 +783,18 @@ bool NeedsRecompiling(const Project &proj, const string &filePath)
 
         return true; // it needs recompiling.
     }
+    if(cacheReg[filepath.c_str()].lastWriteTime != Cache::GetTimeSinceLastWrite(filepath.c_str()))
+    {
+        LTRACE(true, "file is in the cache registry. and file has been modified. recompiling.\n");
+        Cache::UpdateMetadataCache(filepath, cacheDir.c_str());
+
+        string preFile = Cache::PreprocessUnit(proj, filepath, cacheDir.c_str());
+        Cache::UpdatePreprocessedCache(preFile.c_str(), cacheDir.c_str());
+
+        return true; // it needs recompiling.
+    }
+
+    // TODO: metadata cache.
 
     LTRACE(true, "file is in the cache registry, but it is unchanged.\n");
     return false;
@@ -827,9 +844,13 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
         try
         {
             if(CLEAN_BUILD)
-                TRACE(true, "getting library: ", lib.name, "...\n");
+            {
+                LTRACE(true, "getting library: ", lib.name, "...\n");
+            }
             else
+            {
                 LTRACE(true, "building library: ", lib.name, "...\n");
+            }
 
             Library compiledLib = BuildLibrary(proj, lib, proj.buildDir.c_str(), percentPerPart, percent, CLEAN_BUILD);
             compiledLibs.push_back(compiledLib);
@@ -864,11 +885,11 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
         try
         {
             // regen cache for .cpp files.
-            Cache::CreateMetadataCache(files, projCacheDir.c_str());
+            Cache::CreateMetadataCache(allFiles, projCacheDir.c_str());
 
             // gen cache for .i files.
             std::vector<std::string> preprocessedFiles =
-                GeneratePreprocessedFiles(proj, files, projectCacheDir.c_str());
+                GeneratePreprocessedFiles(proj, allFiles, projCacheDir.c_str());
 
             for(auto file : preprocessedFiles)
             {
@@ -897,8 +918,10 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
                 if(percent >= 99.0f)
                     percent = 100.0f;
 
+                // LTRACE(true, "file doesn't need recompiling: ", file, "\n");
                 string hashedName = GetHashedFileNameFromPath(file);
-                compiledFiles.push_back(projCacheDir + "/" + hashedName);
+                compiledFiles.push_back(projCacheDir + "/" + "src/" + hashedName + ".o");
+                // LTRACE(true, "\tfilepath: ", projCacheDir + "/" + "src/" + hashedName + ".o", "\n");
             }
         }
     }
@@ -910,10 +933,16 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
         }
     }
 
+    if(files.size() == 0)
+    {
+        LLOG(BLUE_TEXT("[YMAKE BUILD]: "), "no changes since last build\n");
+    }
+
     ThreadPool threadPool;
     for(auto file : files)
     {
-        threadPool.AddTask([&proj, file, cacheDir, mode, &compiledFiles, &percent, &filePercent, &threadPool] {
+        threadPool.AddTask([&proj, file, cacheDir, mode, &compiledFiles, &percent, &filePercent, filePercent_decimal,
+                            &threadPool] {
             try
             {
                 string compiledFile = CompileFile(proj, file.c_str(), cacheDir.c_str(), mode, proj.buildType, true);
@@ -932,11 +961,15 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
                 percent = 100.0f;
 
             if(filePercent_decimal > 0)
+            {
                 LLOG(GREEN_TEXT("[YMAKE BUILD]: "), BLUE_TEXT("[", percent, ".", filePercent_decimal, "%] "),
                      "built file: ", CYAN_TEXT(file), "\n");
+            }
             else
+            {
                 LLOG(GREEN_TEXT("[YMAKE BUILD]: "), BLUE_TEXT("[", percent, "%] "), "built file: ", CYAN_TEXT(file),
                      "\n");
+            }
 
             threadPool.Unlock();
         });
