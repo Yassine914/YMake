@@ -66,6 +66,11 @@ bool DirExists(const char *path)
     return (fs::exists(path) && fs::is_directory(path));
 }
 
+bool FileExists(const char *path)
+{
+    return (fs::exists(path) && fs::is_regular_file(path));
+}
+
 std::time_t ToTimeT(const std::string &time)
 {
     std::tm tm = {};
@@ -411,7 +416,7 @@ void SaveMetadataCache(const std::string &filepath, const std::unordered_map<std
     cacheFile.close();
 }
 
-// create metadata(vec of filepaths, proj.name) -> void
+// create metadata(vec of filepaths, projCacheDir) -> void
 void CreateMetadataCache(const std::vector<std::string> files, std::string dir)
 {
     // create dirs.

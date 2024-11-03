@@ -17,6 +17,7 @@ void CreateDir(const char *path);
 void CreateCacheDirectories();
 
 bool DirExists(const char *path);
+bool FileExists(const char *path);
 
 std::time_t ToTimeT(const std::string &time);
 

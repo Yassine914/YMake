@@ -208,4 +208,30 @@ static_assert(sizeof(usize) == sizeof(void *), "usize size mismatch.");
 
 #define COMP_MSVC_SUPPRESS_OUTPUT " /nologo > NUL 2>&1"
 
+// platform specific -> extensions
+
+// dynamic library extension
+#if defined(IPLATFORM_WINDOWS)
+    #define LIB_DYN_EXT ".dll"
+#elif defined(IPLATFORM_MACOS)
+    #define LIB_DYN_EXT ".dylib"
+#elif defined(IPLATFORM_LINUX) || defined(IPLATFORM_FREEBSD)
+    #define LIB_DYN_EXT ".so"
+#elif defined(IPLATFORM_UNIX) || defined(IPLATFORM_POSIX)
+    #define LIB_DYN_EXT ".so"
+#else
+    #error "[YMAKE ERROR]: unsupported platform"
+#endif
+
+// static library extension
+#if defined(IPLATFORM_WINDOWS)
+    #define LIB_ST_EXT ".lib"
+#elif defined(IPLATFORM_LINUX) || defined(IPLATFORM_FREEBSD) || defined(IPLATFORM_MACOS)
+    #define LIB_ST_EXT ".a"
+#elif defined(IPLATFORM_UNIX) || defined(IPLATFORM_POSIX)
+    #define LIB_ST_EXT ".a"
+#else
+    #error "[YMAKE ERROR]: unsupported platform"
+#endif
+
 #endif // DEFINES_H

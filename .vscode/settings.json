@@ -10,8 +10,6 @@
         ".clang-format": true,
         "README.md": true,
         ".vscode": true,
-        "old": true,
-        "lib/tomlplusplus": true,
         "lib": true
     },
     "hide-files.files": [
@@ -19,8 +17,6 @@
         ".clang-format",
         "README.md",
         ".vscode",
-        "old",
-        "lib/tomlplusplus",
         "lib"
     ],
     "C_Cpp.intelliSenseEngineFallback": "disabled",
