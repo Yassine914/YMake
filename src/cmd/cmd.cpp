@@ -288,18 +288,18 @@ void CreateNewProject(std::vector<std::string> &input, std::map<std::string, std
     // clang-format off
 
     std::string content =
-        "#PROJECT: " + projName + "\n"
+        "# PROJECT: " + projName + "\n"
         "\n"
-        "[" + projName + "]\n\n"
-        "lang = " + projLang + "\n"
+        "[" + projName + "]\n"
+        "version = \"0.0.1\"\n\n"
+        "lang = \"" + projLang + "\"\n"
         "cpp.std = 14\n"
         "cpp.compiler = \"clang++\"\n\n"
         "build.type = \"" + projType + "\"\n"
         "build.dir = \"./build\"\n\n"
-        "src = \"./src\"\n"
-        "env = \"./.env\"\n\n"
+        "src = \"./src\"\n\n"
         "includes = [\n"
-        "    \"./src\"\n"
+        "    \"./src\",\n"
         "    \"./include/" + projName + "\"\n"
         "]\n";
 

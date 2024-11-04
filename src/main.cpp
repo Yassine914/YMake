@@ -4,8 +4,6 @@
 // TODO: fix some things:
 // need to see if I can compile to other platforms. (x86, ARM, linux, etc..)
 
-// need to compile and run successfuly using a compiler other than clang...
-
 int main(int argc, char **argv)
 {
     LOG_CHANGE_PRIORITY(LOG_NONE);
@@ -77,9 +75,7 @@ int main(int argc, char **argv)
 
     try
     {
-        // LLOG(YELLOW_TEXT("[YMAKE]: "), "calling the function for command: ", cmdInfo.cmd.name, "\n");
         cmdInfo.CallFunction();
-        // LLOG(YELLOW_TEXT("[YMAKE]: "), "called the function for command: ", cmdInfo.cmd.name, "\n");
     }
     catch(Y::Error &err)
     {

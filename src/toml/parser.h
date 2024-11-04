@@ -255,7 +255,8 @@ class Project
 
     void OutputInfo()
     {
-        LLOG(BLUE_TEXT("Project: "), name, "\n\n");
+        LLOG(BLUE_TEXT("Project: "), name, "\n");
+        LLOG(BLUE_TEXT("\tVersion: "), version, "\n\n");
 
         LLOG(PURPLE_TEXT("\tLanguages: \n"));
         for(auto lang : langs)

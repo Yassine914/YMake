@@ -170,11 +170,21 @@ BuildType ToBuildType(const std::string &str)
     throw Y::Error("specified an unknown build type");
 }
 
-Lang ToLang(const std::string &str)
+string ToLower(const string &str)
 {
-    if(str == "C++" || str == "CPP" || str == "CC" || str == "CXX")
+    string lower_str = "";
+    for(auto const &ch : str)
+        lower_str += std::tolower(ch);
+
+    return lower_str;
+}
+
+Lang ToLang(const std::string &string)
+{
+    std::string str = ToLower(string);
+    if(str == "c++" || str == "cpp" || str == "cc" || str == "cxx")
         return Lang::CPP;
-    if(str == "C")
+    if(str == "c")
         return Lang::C;
 
     throw Y::Error("specified an unknown (or unsupported) language.");
