@@ -24,8 +24,6 @@ CommandInfo ParseCLI(std::vector<std::string> arguments, std::vector<Command> co
     std::map<std::string, std::string> foundAvailableArgs;
     std::vector<std::string> cmdIn;
 
-    // FIXME: check if a command has value or not while parsing, not after.
-
     // parse the arguments first.
     std::vector<std::string> usedArgs;
     for(usize i = 0; i < args.size(); i++)
@@ -252,8 +250,8 @@ void CreateNewProject(std::vector<std::string> &input, std::map<std::string, std
     // check if the project already exists.
     if(Cache::DirExists(projPath.c_str()))
     {
-        LLOG(YELLOW_TEXT("[YMAKE NEW PROJECT]: "), "project already exists at: ", projPath, "\n");
-        LLOG(YELLOW_TEXT("\t[YMAKE]: "), "this will override the existing project. continue? [Y/n] ");
+        LLOG(YELLOW_TEXT("[YMAKE]: "), "project already exists at: ", projPath, "\n");
+        LLOG(YELLOW_TEXT("\t[NOTE]: this will override the existing directory/directory."), " continue? [Y/n] ");
         char x;
         std::cin >> x;
         if(x != 'y' && x != 'Y')
@@ -339,9 +337,10 @@ void CreateNewProject(std::vector<std::string> &input, std::map<std::string, std
         mainfile.close();
     }
 
-    LLOG(BLUE_TEXT("[YMAKE NEW PROJECT]: "), "project created successfully at: ", projPath, "\n");
-    LLOG("\tto build the project, run: ", CYAN_TEXT("ymake build -c ", projPath, "/YMake.toml\n"));
-    LLOG("\t\tor simply run: ", CYAN_TEXT("ymake build\n"));
+    LLOG(GREEN_TEXT("[YMAKE]: "), "project created successfully at: ", BLUE_TEXT(projPath), "\n");
+    LLOG("\tto build the project, run: ", CYAN_TEXT("ymake build -c "), BLUE_TEXT(projPath, "/YMake.toml\n"));
+    LLOG("\tor simply run: ", CYAN_TEXT("ymake build\n"),
+         "if running ymake in the same directory as the YMake.toml file.");
 }
 
 void OutputProjectsInfo(std::vector<std::string> &input, std::map<std::string, std::string> &args)
