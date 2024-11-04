@@ -16,3 +16,14 @@ includes = [
     "./src",
     "./include/NewTest"
 ]
+
+[NewTest.compiler]
+
+defines.debug = [
+    "NT_DEBUG"
+]
+
+optimization.release = 3
+defines.release = [
+    "NT_NDEBUG"
+]

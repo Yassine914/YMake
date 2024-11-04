@@ -170,9 +170,9 @@ BuildType ToBuildType(const std::string &str)
     throw Y::Error("specified an unknown build type");
 }
 
-string ToLower(const string &str)
+std::string ToLower(const std::string &str)
 {
-    string lower_str = "";
+    std::string lower_str = "";
     for(auto const &ch : str)
         lower_str += std::tolower(ch);
 

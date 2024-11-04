@@ -736,7 +736,7 @@ std::string PreprocessUnit(const Project &proj, const std::string &file, const s
     // output file.
     fs::path inputPath(file);
 
-    std::string outputPath = Basepath(file) + "/" + GetHashedFileNameFromPath(file);
+    std::string outputPath = path + "/src" + "/" + GetHashedFileNameFromPath(file);
     outputPath += std::string(".i");
 
     LTRACE(true, "about to create preprocessed cache at: ", outputPath, "\n");
