@@ -21,6 +21,13 @@ int main(int argc, char **argv)
             Y::CommandArgument("config", "/path/to/YMake.toml (new file)", "-c", "--config-file")
         }, Y::CreateDefaultConfig),
 
+        Y::Command("new", "[args...]\tcreate a new project with default directory structure, and YMake.toml file (ovverrides existing dir with same name as project name)", {
+            Y::CommandArgument("project name", "name of the project", "-n", "--name"),
+            Y::CommandArgument("project path", "path to create the project", "-p", "--path"),
+            Y::CommandArgument("project type", "type of project to create [executable, static, shared]", "-t", "--type"),
+            Y::CommandArgument("project lang", "language of the project [c, cpp]", "-l", "--lang"),
+        }, Y::CreateNewProject),
+
         Y::Command("list", "lists all the projects specified in the toml file (generates new cache as well)", {
             Y::CommandArgument("config", "/path/to/YMake.toml (existing file)", "-c", "--config-file"),
         }, Y::OutputProjectsInfo),

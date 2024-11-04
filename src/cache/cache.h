@@ -19,6 +19,8 @@ void CreateCacheDirectories();
 bool DirExists(const char *path);
 bool FileExists(const char *path);
 
+bool RemoveDir(const char *path);
+
 std::time_t ToTimeT(const std::string &time);
 
 std::time_t GetTimeSinceLastWrite(const char *file);

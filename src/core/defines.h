@@ -234,4 +234,9 @@ static_assert(sizeof(usize) == sizeof(void *), "usize size mismatch.");
     #error "[YMAKE ERROR]: unsupported platform"
 #endif
 
+// werid things.
+#if defined(IPLATFORM_WINDOWS)
+    #define localtime_r(a, b) localtime_s(b, a)
+#endif
+
 #endif // DEFINES_H

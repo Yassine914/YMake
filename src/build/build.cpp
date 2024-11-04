@@ -794,7 +794,21 @@ bool NeedsRecompiling(const Project &proj, const string &filePath)
         return true; // it needs recompiling.
     }
 
-    // TODO: metadata cache.
+    // TODO: preprocessed metadata cache.a
+    auto preCache = Cache::LoadPreprocessedCache(cacheDir.c_str());
+    if(preCache.count(filePath) == 0)
+    {
+        Cache::UpdatePreprocessedCache(filePath, cacheDir.c_str());
+        return true; // it needs recompiling.
+    }
+    else
+    {
+        if(preCache[filePath] != Cache::GetFileSize(filePath.c_str()))
+        {
+            Cache::UpdatePreprocessedCache(filePath, cacheDir.c_str());
+            return true; // it needs recompiling.
+        }
+    }
 
     LTRACE(true, "file is in the cache registry, but it is unchanged.\n");
     return false;
@@ -1013,7 +1027,17 @@ void BuildProject(Project proj, BuildMode mode, bool cleanBuild)
     LLOG("\t build took ", GREEN_TEXT(seconds), "s ", GREEN_TEXT(milliseconds), "ms\n");
 
     if(proj.buildType == BuildType::EXECUTABLE)
+    {
         LLOG(PURPLE_TEXT("to run project -> "), "\'", outfile, "\'\n");
+    }
+    else if(proj.buildType == BuildType::STATIC_LIB)
+    {
+        LLOG(PURPLE_TEXT("built static library -> "), "\'", outfile, "\'\n");
+    }
+    else if(proj.buildType == BuildType::SHARED_LIB)
+    {
+        LLOG(PURPLE_TEXT("built shared library -> "), "\'", outfile, "\'\n");
+    }
 }
 
 } // namespace Y::Build

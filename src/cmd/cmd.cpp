@@ -166,7 +166,6 @@ void CreateDefaultConfig(std::vector<std::string> &input, std::map<std::string, 
 
     std::string contents =
         "# PROJECT: Default\n"
-        "\n"
         "[Default]\n"
         "\n"
         "#could be an array for multiple language support\n"
@@ -204,15 +203,14 @@ void CreateDefaultConfig(std::vector<std::string> &input, std::map<std::string, 
         "    \"winmm\",\n"
         "]\n"
         "\n"
-        "\n"
         "[Default.compiler]\n"
         "\n"
         "# compiler optimization: 0 -> no optimization. 3 -> O3 optimization (max)\n"
         "debug.optimization = 0\n"
         "\n"
         "debug.defines = [\n"
-        "    \"DDEBUG\",\n"
-        "    \"DTEST=1\"\n"
+        "    \"DEFAULT_DEBUG\",\n"
+        "    \"DEF_WITH_VAL=3.141\"\n"
         "]\n"
         "\n"
         "# compiler flags.\n"
@@ -226,16 +224,124 @@ void CreateDefaultConfig(std::vector<std::string> &input, std::map<std::string, 
         "\n"
         "release.defines = [\n"
         "    \"DNDEBUG\",\n"
-        "]\n"
-        "\n"
-        "release.flags = [\n"
-        "    \"-Wno-unused-variable\",\n"
-        "]";
+        "]\n";
 
     file << contents;
     file.close();
 
     LLOG(BLUE_TEXT("[YMAKE]: "), "successfully created file at: ", path, "\n");
+}
+
+void CreateNewProject(std::vector<std::string> &input, std::map<std::string, std::string> &args)
+{
+    (void)input;
+
+    std::string projName = args.count("project name") > 0 ? args["project name"] : "";
+    if(projName == "")
+    {
+        LLOG(PURPLE_TEXT("[YMAKE NEW PROJECT]: "), "enter project name: ");
+        std::cin >> projName;
+    }
+
+    std::string projPath = args.count("project path") > 0 ? args["project path"] : std::string("./") + projName;
+    std::string projType = args.count("project type") > 0 ? args["project type"] : "executable";
+    std::string projLang = args.count("project lang") > 0 ? args["project lang"] : "cpp";
+
+    LLOG(BLUE_TEXT("[YMAKE NEW PROJECT]: "), "creating new project: ", CYAN_TEXT(projName), "...\n");
+
+    // check if the project already exists.
+    if(Cache::DirExists(projPath.c_str()))
+    {
+        LLOG(YELLOW_TEXT("[YMAKE NEW PROJECT]: "), "project already exists at: ", projPath, "\n");
+        LLOG(YELLOW_TEXT("\t[YMAKE]: "), "this will override the existing project. continue? [Y/n] ");
+        char x;
+        std::cin >> x;
+        if(x != 'y' && x != 'Y')
+        {
+            LLOG("Exiting...\n");
+            exit(1);
+        }
+
+        if(!Cache::RemoveDir(projPath.c_str()))
+        {
+            LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't remove the existing project at: ", projPath, "\n");
+            exit(1);
+        }
+    }
+
+    // create the project directory.
+    Cache::CreateDir(projPath.c_str());
+
+    // create the src directory.
+    Cache::CreateDir((projPath + "/src").c_str());
+
+    // create include dir. ./projPath/include/projName/
+    Cache::CreateDir((projPath + "/include/" + projName).c_str());
+
+    // create the build directory.
+    Cache::CreateDir((projPath + "/build").c_str());
+
+    // create the thirdparty directory.
+    Cache::CreateDir((projPath + "/thirdparty").c_str());
+
+    // create YMake.toml file.
+    std::ofstream file(projPath + "/YMake.toml", std::ios::out);
+
+    // clang-format off
+
+    std::string content =
+        "#PROJECT: " + projName + "\n"
+        "\n"
+        "[" + projName + "]\n\n"
+        "lang = " + projLang + "\n"
+        "cpp.std = 14\n"
+        "cpp.compiler = \"clang++\"\n\n"
+        "build.type = \"" + projType + "\"\n"
+        "build.dir = \"./build\"\n\n"
+        "src = \"./src\"\n"
+        "env = \"./.env\"\n\n"
+        "includes = [\n"
+        "    \"./src\"\n"
+        "    \"./include/" + projName + "\"\n"
+        "]\n";
+
+    // clang-format on
+
+    file << content;
+    file.close();
+
+    if(projLang == "cpp" || projLang == "CPP" || projLang == "cxx" || projLang == "CXX" || projLang == "c++" ||
+       projLang == "C++")
+    {
+        // create main.cpp
+        std::string maincpp = "#include <iostream>\n\n"
+                              "int main()\n"
+                              "{\n"
+                              "    std::cout << \"Hello, World!\" << std::endl;\n"
+                              "    return 0;\n"
+                              "}\n";
+
+        std::ofstream mainfile(projPath + "/src/main.cpp", std::ios::out);
+        mainfile << maincpp;
+        mainfile.close();
+    }
+    else if(projLang == "c" || projLang == "C")
+    {
+        std::string mainc = "#include <stdio.h>\n\n"
+                            "int main()\n"
+                            "{\n"
+                            "    printf(\"Hello, World!\\n\");\n"
+                            "    return 0;\n"
+                            "}\n";
+
+        std::ofstream mainfile(projPath + "/src/main.c", std::ios::out);
+        mainfile << mainc;
+        mainfile.close();
+    }
+
+    LLOG(BLUE_TEXT("[YMAKE NEW PROJECT]: "), "project created successfully at: ", projPath, "\n");
+    LLOG("\tto build the project, run: ", CYAN_TEXT("ymake build -c ", projPath, "/YMake.toml\n"));
+    LLOG("\t\tor simply run: ", CYAN_TEXT("ymake build\n"));
 }
 
 void OutputProjectsInfo(std::vector<std::string> &input, std::map<std::string, std::string> &args)

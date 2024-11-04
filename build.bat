@@ -2,7 +2,7 @@
 SetLocal EnableDelayedExpansion
 
 set outputAssembly=ymake
-set compiler=g++
+set compiler=clang++
 rem set target=-target x86_64-pc-windows-gnu 
 set compilerFlags=-g -Wvarargs -Wall -Werror -std=c++17 -pthread
 set includeFlags=-I./lib/tomlplusplus/include -I./src

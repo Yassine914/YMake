@@ -8,6 +8,8 @@
 #include <sstream>
 #include <iomanip>
 
+#include "defines.h"
+
 #include <mutex>
 #define LOCK_MUTEX(x) std::lock_guard<std::mutex> lock(x)
 

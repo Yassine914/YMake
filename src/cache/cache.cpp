@@ -71,6 +71,25 @@ bool FileExists(const char *path)
     return (fs::exists(path) && fs::is_regular_file(path));
 }
 
+bool RemoveDir(const char *path)
+{
+    try
+    {
+        if(fs::exists(path))
+        {
+            fs::remove_all(path);
+            return true;
+        }
+        return true;
+    }
+    catch(const fs::filesystem_error &err)
+    {
+        LLOG(RED_TEXT("[YMAKE ERROR]: "), "couldn't remove directory.\n\t", err.what(), "\n");
+    }
+
+    return false;
+}
+
 std::time_t ToTimeT(const std::string &time)
 {
     std::tm tm = {};

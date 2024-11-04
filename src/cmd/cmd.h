@@ -126,6 +126,7 @@ void OutputHelpInfo(std::vector<Command> commands);
 
 // tools
 void CreateDefaultConfig(std::vector<std::string> &input, std::map<std::string, std::string> &args);
+void CreateNewProject(std::vector<std::string> &input, std::map<std::string, std::string> &args);
 void OutputProjectsInfo(std::vector<std::string> &input, std::map<std::string, std::string> &args);
 void SetupProjectInfo(std::vector<std::string> &input, std::map<std::string, std::string> &args);
 
