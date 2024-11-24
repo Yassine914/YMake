@@ -1,0 +1,11 @@
+CompileFlags:
+  Add: [
+    -std=c++17,
+    -I.,
+    -I./include,
+    -I./src,
+    -Wall,
+    -Wextra
+  ]
+  # Remove: [-W*, -w]
+  Compiler: clang++

@@ -97,7 +97,6 @@ if %ERRORLEVEL% equ 0 (
     echo compilation/linking successful.
 ) else (
     echo compilation/linking failed.
-    exit
 )
 
 exit

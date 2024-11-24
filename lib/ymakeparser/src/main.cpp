@@ -1,8 +1,8 @@
-#include "core/defines.h"
+// #include "core/defines.h"
 #include "core/logger.h"
-#include "core/error.h"
+// #include "core/error.h"
 
-#include <ymakeparser/parser.h>
+#include "../include/ymakeparser/parser.h"
 
 int main(int argc, char **argv)
 {
@@ -10,9 +10,13 @@ int main(int argc, char **argv)
 
     if(argc < 2)
     {
-        LERROR(true, "Usage: ymakep <file>");
+        LERROR("Usage: ymakep <file>\n");
         return 1;
     }
 
     const char *file = argv[1];
+
+    const char *content = ymake_read(file);
+
+    ymake_parse(content);
 }
