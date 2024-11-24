@@ -45,3 +45,39 @@ release.optimization = 3
 release.defines = [
     "DNDEBUG",
 ]
+
+
+[libtest.linux]
+libs.sys = [
+    "GL",
+    "X11",
+    "pthread",
+    "stdc++",
+]
+
+[libtest.windows]
+libs.sys = [
+    "opengl32",
+    "gdi32",
+    "winmm",
+    "stdc++",
+]
+
+[libtest.macos]
+libs.sys = [
+    "OpenGL",
+    "Cocoa",
+    "IOKit",
+    "CoreVideo",
+    "stdc++",
+]
+
+[libtest.custom."key"]
+includes = [
+    "./custom/include",
+    "./custom/src",
+]
+
+libs = [
+    {name = "libname", path = "path/to/lib", include = "path/to/include", type = "shared"}
+]

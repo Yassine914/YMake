@@ -46,7 +46,7 @@ template <typename T>
 std::string SerializeVectorOfEnums(const std::vector<T> &vec)
 {
     std::ostringstream oss;
-    oss << vec.size() << "\n";
+    oss << static_cast<usize>(vec.size()) << "\n";
     for (const T &item : vec)
     {
         oss << static_cast<i32>(item) << "\n";
@@ -59,10 +59,11 @@ template <typename T>
 std::string SerializeVector(const std::vector<T> &vec)
 {
     std::ostringstream oss;
-    oss << vec.size() << "\n";
+    oss << static_cast<usize>(vec.size()) << "\n";
     for (const auto &item : vec)
     {
         oss << item << "\n";
+        LTRACE(true, "Serialized item: ", item, "\n");
     }
     return oss.str();
 }
@@ -76,11 +77,12 @@ std::vector<T> DeserializeVector(std::istringstream &iss)
     std::getline(iss, line);
     usize size = std::stoul(line);
     vec.resize(size);
-    for (usize i = 0; i < size; ++i)
+    for (usize i = 0; i < size; i++)
     {
         std::getline(iss, line);
         std::istringstream itemStream(line);
         itemStream >> vec[i];
+        LTRACE(true, "Deserialized item: ", vec[i], "\n");
     }
     return vec;
 }
@@ -93,7 +95,7 @@ std::vector<T> DeserializeVectorOfEnums(std::istringstream &iss)
     std::getline(iss, line);
     usize size = std::stoul(line);
     vec.resize(size);
-    for (usize i = 0; i < size; ++i)
+    for (usize i = 0; i < size; i++)
     {
         std::getline(iss, line);
         i32 value = std::stoi(line);
@@ -237,6 +239,7 @@ class Project
             libs.push_back(Library(libName, libPath, libType, libIncl));
         }
 
+        LTRACE(true, "Deserializing libs and defines...\n");
         preBuiltLibs = DeserializeVector<std::string>(iss);
         sysLibs      = DeserializeVector<std::string>(iss);
 
@@ -249,6 +252,7 @@ class Project
         std::getline(iss, opRelease);
         optimizationRelease = std::atoi(opRelease.c_str());
 
+        LTRACE(true, "Deserializing flags...\n");
         flagsDebug   = DeserializeVector<std::string>(iss);
         flagsRelease = DeserializeVector<std::string>(iss);
     }

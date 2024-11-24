@@ -19,11 +19,11 @@ includes = [
 
 [NewTest.compiler]
 
-defines.debug = [
+debug.defines = [
     "NT_DEBUG"
 ]
 
-optimization.release = 3
-defines.release = [
+release.optimization = 2
+release.defines = [
     "NT_NDEBUG"
 ]

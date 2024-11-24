@@ -1,0 +1,75 @@
+project ymake =>
+
+version 0.2.7
+
+cpp.std      14
+cpp.compiler clang++
+
+build.type  exe
+build.dir './bin'
+
+src './src'
+
+includes [
+    './src',
+    './include',
+]
+
+libs.src [
+    {name 'DEngine', path '$(YM_CURRENT_DIR)/lib/',
+        include './lib/', type shared},
+]
+
+libs.sys [
+    'stdc++',
+    'opengl',
+    'gdi32',
+    'winmm',
+]
+
+if debug =>
+    optimization 0
+    defines [
+        'YMAKE_DEBUG',
+        'YMAKE_VERSION=1',
+    ]
+    flags [
+        '-Wall',
+        '-Wextra',
+        '-g',
+    ]
+    ;
+
+if release =>
+    optimization 3
+    defines -> 'YMAKE_NDEBUG'
+    ;
+    
+
+
+if win =>
+    libs.sys +[
+        'opengl32',
+        'winmm',
+    ]
+    flags + -> '-target windows-x86_64'
+    ;
+
+if linux =>
+    includes + -> './platform/linux.h'
+
+    libs.sys +[
+        'x11',
+        'pthread',
+    ]
+
+    ;
+
+if custom_key =>
+    includes +[
+        'custom.h',
+        'pch.h'
+    ]
+    ;
+
+;

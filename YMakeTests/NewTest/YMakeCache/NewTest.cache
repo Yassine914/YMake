@@ -16,9 +16,11 @@ clang++
 0
 0
 0
+1
+NT_NDEBUG
+1
+NT_DEBUG
 0
-0
-0
-3
+2
 0
 0

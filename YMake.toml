@@ -1,0 +1,83 @@
+# PROJECT: YMake
+
+[YMake]
+lang = "C++"
+
+cpp.std = 14
+cpp.compiler = "gcc"
+
+build.type = "executable"
+build.dir = "./bin"
+
+src = "./src"
+
+includes = [
+    "./src",
+    "./include",
+]
+
+libs.src = [
+    {name = "DEngine", path = "$(YM_CURRENT_DIR)/lib/DEngine/src", include = "./lib/DEngine/include", type = "shared"}
+]
+
+libs.sys = [
+    "stdc++",
+    "opengl32",
+    "gdi32",
+    "winmm",
+]
+
+[YMake.compiler]
+
+debug.optimization = 0
+debug.defines = [
+    "DDEBUG",
+    "DTEST=1"
+]
+
+debug.flags = [
+    "-Wall",
+    "-Wextra",
+    "-g"
+]
+
+release.optimization = 3
+release.defines = [
+    "DNDEBUG",
+]
+
+
+[YMake.linux]
+libs.sys = [
+    "GL",
+    "X11",
+    "pthread",
+    "stdc++",
+]
+
+[YMake.windows]
+libs.sys = [
+    "opengl32",
+    "gdi32",
+    "winmm",
+    "stdc++",
+]
+
+[YMake.macos]
+libs.sys = [
+    "OpenGL",
+    "Cocoa",
+    "IOKit",
+    "CoreVideo",
+    "stdc++",
+]
+
+[YMake.custom."key"]
+includes = [
+    "./custom/include",
+    "./custom/src",
+]
+
+libs = [
+    {name = "libname", path = "path/to/lib", include = "path/to/include", type = "shared"}
+]
